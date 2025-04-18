@@ -45,6 +45,7 @@ export default function Message(props: TMessageProps) {
   }
 
   const { children, messageId = null } = message;
+  const hasChildren = Array.isArray(children) && children.length > 0;
 
   return (
     <>
@@ -78,14 +79,16 @@ export default function Message(props: TMessageProps) {
           </div>
         )}
       </MessageContainer>
-      <MultiMessage
-        key={messageId}
-        messageId={messageId}
-        conversation={conversation}
-        messagesTree={children ?? []}
-        currentEditId={currentEditId}
-        setCurrentEditId={setCurrentEditId}
-      />
+      {hasChildren && (
+        <MultiMessage
+          key={messageId}
+          messageId={messageId}
+          conversation={conversation}
+          messagesTree={children ?? []}
+          currentEditId={currentEditId}
+          setCurrentEditId={setCurrentEditId}
+        />
+      )}
     </>
   );
 }

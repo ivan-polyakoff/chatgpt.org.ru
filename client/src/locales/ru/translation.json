@@ -289,6 +289,8 @@
   "com_nav_auto_transcribe_audio": "Автоматическая транскрипция",
   "com_nav_automatic_playback": "Автовоспроизведение последнего сообщения",
   "com_nav_balance": "Баланс",
+  "com_nav_balance_topup": "Пополнить",
+  "com_nav_topup": "Пополнить",
   "com_nav_browser": "Браузер",
   "com_nav_buffer_append_error": "Проблема с потоковым аудио. Воспроизведение может прерываться.",
   "com_nav_change_picture": "Изменить изображение",

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Constants, EModelEndpoint } from 'librechat-data-provider';
 import { useGetModelsQuery } from 'librechat-data-provider/react-query';
@@ -52,6 +52,17 @@ export default function ChatRoute() {
   });
   const endpointsQuery = useGetEndpointsQuery({ enabled: isAuthenticated });
   const assistantListMap = useAssistantListMap();
+  
+  // Мемоизируем функцию создания нового разговора, чтобы предотвратить лишние рендеры
+  const createNewConversation = useCallback(
+    (args: any) => {
+      if (!hasSetConversation.current) {
+        newConversation(args);
+        hasSetConversation.current = true;
+      }
+    },
+    [newConversation]
+  );
 
   useEffect(() => {
     const shouldSetConvo =
@@ -61,10 +72,18 @@ export default function ChatRoute() {
       return;
     }
 
-    if (conversationId === Constants.NEW_CONVO && endpointsQuery.data && modelsQuery.data) {
+    // Проверяем, что у нас есть все необходимые данные для создания разговора
+    const hasEndpoints = !!endpointsQuery.data;
+    const hasModels = !!modelsQuery.data;
+    const hasAssistants = !!(
+      assistantListMap[EModelEndpoint.assistants] &&
+      assistantListMap[EModelEndpoint.azureAssistants]
+    );
+    
+    if (conversationId === Constants.NEW_CONVO && hasEndpoints && hasModels) {
       const spec = getDefaultModelSpec(startupConfig);
 
-      newConversation({
+      createNewConversation({
         modelsData: modelsQuery.data,
         template: conversation ? conversation : undefined,
         ...(spec
@@ -77,24 +96,17 @@ export default function ChatRoute() {
           }
           : {}),
       });
-
-      hasSetConversation.current = true;
-    } else if (initialConvoQuery.data && endpointsQuery.data && modelsQuery.data) {
-      newConversation({
+    } else if (initialConvoQuery.data && hasEndpoints && hasModels) {
+      createNewConversation({
         template: initialConvoQuery.data,
         /* this is necessary to load all existing settings */
         preset: initialConvoQuery.data as TPreset,
         modelsData: modelsQuery.data,
         keepLatestMessage: true,
       });
-      hasSetConversation.current = true;
-    } else if (
-      conversationId === Constants.NEW_CONVO &&
-      assistantListMap[EModelEndpoint.assistants] &&
-      assistantListMap[EModelEndpoint.azureAssistants]
-    ) {
+    } else if (conversationId === Constants.NEW_CONVO && hasAssistants) {
       const spec = getDefaultModelSpec(startupConfig);
-      newConversation({
+      createNewConversation({
         modelsData: modelsQuery.data,
         template: conversation ? conversation : undefined,
         ...(spec
@@ -107,20 +119,15 @@ export default function ChatRoute() {
           }
           : {}),
       });
-      hasSetConversation.current = true;
-    } else if (
-      assistantListMap[EModelEndpoint.assistants] &&
-      assistantListMap[EModelEndpoint.azureAssistants]
-    ) {
-      newConversation({
+    } else if (hasAssistants && initialConvoQuery.data) {
+      createNewConversation({
         template: initialConvoQuery.data,
         preset: initialConvoQuery.data as TPreset,
         modelsData: modelsQuery.data,
         keepLatestMessage: true,
       });
-      hasSetConversation.current = true;
     }
-    /* Creates infinite render if all dependencies included due to newConversation invocations exceeding call stack before hasSetConversation.current becomes truthy */
+    /* Используем мемоизированную функцию createNewConversation вместо прямого вызова newConversation */
   }, [
     startupConfig,
     initialConvoQuery.data,
@@ -128,6 +135,8 @@ export default function ChatRoute() {
     modelsQuery.data,
     assistantListMap,
     conversationId,
+    createNewConversation,
+    conversation,
   ]);
 
   if (endpointsQuery.isLoading || modelsQuery.isLoading) {

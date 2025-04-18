@@ -93,13 +93,22 @@ export default function useMessageProcess({ message }: { message?: TMessage | nu
       latestMultiMessage &&
       latestMultiMessage.conversationId === message?.conversationId
     ) {
-      const newSibling = Object.assign({}, latestMultiMessage, {
-        parentMessageId: message.parentMessageId,
-        depth: message.depth,
-      });
-      setSiblingMessage(newSibling);
+      // Проверяем, что текущий siblingMessage отличается от того, что мы собираемся создать
+      // или siblingMessage ещё не существует
+      if (
+        !siblingMessage ||
+        siblingMessage.messageId !== latestMultiMessage.messageId ||
+        siblingMessage.parentMessageId !== message.parentMessageId ||
+        siblingMessage.depth !== message.depth
+      ) {
+        const newSibling = Object.assign({}, latestMultiMessage, {
+          parentMessageId: message.parentMessageId,
+          depth: message.depth,
+        });
+        setSiblingMessage(newSibling);
+      }
     }
-  }, [hasNoChildren, latestMultiMessage, message, setSiblingMessage, latestMessage]);
+  }, [hasNoChildren, latestMultiMessage, message]);
 
   return {
     showSibling,

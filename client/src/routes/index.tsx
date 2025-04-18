@@ -13,6 +13,7 @@ import RouteErrorBoundary from './RouteErrorBoundary';
 import StartupLayout from './Layouts/Startup';
 import LoginLayout from './Layouts/Login';
 import dashboardRoutes from './Dashboard';
+import adminRoutes from './Admin';
 import ShareRoute from './ShareRoute';
 import ChatRoute from './ChatRoute';
 import Search from './Search';
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
         ],
       },
       dashboardRoutes,
+      adminRoutes,
       {
         path: '/',
         element: <Root />,

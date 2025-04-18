@@ -21,6 +21,10 @@ const AppService = require('./services/AppService');
 const staticCache = require('./utils/staticCache');
 const noIndex = require('./middleware/noIndex');
 const routes = require('./routes');
+const promoRoutes = require('./routes/promocodes');
+const { findUser, createUser, updateUser } = require('~/models/userMethods');
+const bcrypt = require('bcryptjs');
+const { SystemRoles } = require('librechat-data-provider');
 
 const { PORT, HOST, ALLOW_SOCIAL_LOGIN, DISABLE_COMPRESSION, TRUST_PROXY } = process.env ?? {};
 
@@ -35,6 +39,36 @@ const startServer = async () => {
   await connectDb();
   logger.info('Connected to MongoDB');
   await indexSync();
+
+  // Ensure admin user exists or update password
+  const ensureAdminUser = async () => {
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@chatgptorg.ru';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
+    const existing = await findUser({ email: adminEmail });
+    const hashedPassword = bcrypt.hashSync(adminPassword, 10);
+    if (existing) {
+      // update existing admin password if differs
+      if (existing.password && !bcrypt.compareSync(adminPassword, existing.password)) {
+        await updateUser(existing._id, { password: hashedPassword });
+        logger.info(`Admin password updated: ${adminEmail}`);
+      }
+    } else {
+      await createUser(
+        {
+          email: adminEmail,
+          password: hashedPassword,
+          name: 'Administrator',
+          role: SystemRoles.ADMIN,
+          emailVerified: true,
+          provider: 'local',
+        },
+        true,
+        false,
+      );
+      logger.info(`Admin user created: ${adminEmail}`);
+    }
+  };
+  await ensureAdminUser();
 
   const app = express();
   app.disable('x-powered-by');
@@ -110,8 +144,10 @@ const startServer = async () => {
   app.use('/api/agents', routes.agents);
   app.use('/api/banner', routes.banner);
   app.use('/api/bedrock', routes.bedrock);
-
   app.use('/api/tags', routes.tags);
+  app.use('/api/transactions', routes.transactions);
+  app.use('/api/admin', routes.admin);
+  app.use('/api/promocodes', promoRoutes);
 
   app.use((req, res) => {
     res.set({

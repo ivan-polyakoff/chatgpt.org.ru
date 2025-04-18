@@ -95,7 +95,7 @@ function CodeInterpreter({ conversationId }: { conversationId?: string | null })
   return (
     <>
       <CheckboxButton
-        className="max-w-fit"
+        className="max-w-fit hidden"
         defaultChecked={runCode}
         setValue={debouncedChange}
         label={localize('com_assistants_code_interpreter')}

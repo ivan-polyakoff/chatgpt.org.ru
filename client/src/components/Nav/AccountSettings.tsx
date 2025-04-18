@@ -1,7 +1,7 @@
 import { useState, memo } from 'react';
 import { useRecoilState } from 'recoil';
 import * as Select from '@ariakit/react/select';
-import { FileText, LogOut } from 'lucide-react';
+import { FileText, LogOut, PlusCircle } from 'lucide-react';
 import { LinkIcon, GearIcon, DropdownMenuSeparator } from '~/components';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import FilesView from '~/components/Chat/Input/Files/FilesView';
@@ -11,6 +11,7 @@ import { UserIcon } from '~/components/svg';
 import { useLocalize } from '~/hooks';
 import Settings from './Settings';
 import store from '~/store';
+import TopUpBalance from './TopUpBalance';
 
 function AccountSettings() {
   const localize = useLocalize();
@@ -21,6 +22,7 @@ function AccountSettings() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [showFiles, setShowFiles] = useRecoilState(store.showFiles);
+  const [showTopUp, setShowTopUp] = useState(false);
 
   const avatarSrc = useAvatar(user);
   const avatarSeed = user?.avatar || user?.name || user?.username || '';
@@ -79,8 +81,15 @@ function AccountSettings() {
           balanceQuery.data != null &&
           !isNaN(parseFloat(balanceQuery.data)) && (
           <>
-            <div className="text-token-text-secondary ml-3 mr-2 py-2 text-sm" role="note">
-              {localize('com_nav_balance')}: {parseFloat(balanceQuery.data).toFixed(2)}
+            <div className="text-token-text-secondary ml-3 mr-2 py-2 text-sm flex justify-between items-center" role="note">
+              <span>{localize('com_nav_balance')}: {parseFloat(balanceQuery.data).toFixed(2)}</span>
+              <button
+                onClick={() => setShowTopUp(true)}
+                className="text-primary hover:text-primary-hover flex items-center"
+              >
+                <PlusCircle className="icon-sm mr-1" />
+                {localize('com_nav_topup')}
+              </button>
             </div>
             <DropdownMenuSeparator />
           </>
@@ -124,6 +133,7 @@ function AccountSettings() {
       </Select.SelectPopover>
       {showFiles && <FilesView open={showFiles} onOpenChange={setShowFiles} />}
       {showSettings && <Settings open={showSettings} onOpenChange={setShowSettings} />}
+      {showTopUp && <TopUpBalance open={showTopUp} onOpenChange={setShowTopUp} user={user} />}
     </Select.SelectProvider>
   );
 }
