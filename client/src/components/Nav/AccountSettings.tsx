@@ -1,10 +1,11 @@
 import { useState, memo } from 'react';
 import { useRecoilState } from 'recoil';
 import * as Select from '@ariakit/react/select';
-import { FileText, LogOut, PlusCircle } from 'lucide-react';
+import { FileText, LogOut, PlusCircle, Gift } from 'lucide-react';
 import { LinkIcon, GearIcon, DropdownMenuSeparator } from '~/components';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import FilesView from '~/components/Chat/Input/Files/FilesView';
+import SubscriptionModal from './SubscriptionModal';
 import { useAuthContext } from '~/hooks/AuthContext';
 import useAvatar from '~/hooks/Messages/useAvatar';
 import { UserIcon } from '~/components/svg';
@@ -16,6 +17,7 @@ import TopUpBalance from './TopUpBalance';
 function AccountSettings() {
   const localize = useLocalize();
   const { user, isAuthenticated, logout } = useAuthContext();
+  const [showSubscription, setShowSubscription] = useState(false);
   const { data: startupConfig } = useGetStartupConfig();
   const balanceQuery = useGetUserBalance({
     enabled: !!isAuthenticated && startupConfig?.balance?.enabled,
@@ -96,6 +98,15 @@ function AccountSettings() {
         )}
         <Select.SelectItem
           value=""
+          onClick={() => setShowSubscription(true)}
+          className="select-item text-sm"
+        >
+          <Gift className="icon-md" aria-hidden="true" />
+          {localize('com_nav_subscriptions')}
+        </Select.SelectItem>
+        <DropdownMenuSeparator />
+        <Select.SelectItem
+          value=""
           onClick={() => setShowFiles(true)}
           className="select-item text-sm"
         >
@@ -132,6 +143,9 @@ function AccountSettings() {
         </Select.SelectItem>
       </Select.SelectPopover>
       {showFiles && <FilesView open={showFiles} onOpenChange={setShowFiles} />}
+      {showSubscription && (
+        <SubscriptionModal open={showSubscription} onOpenChange={setShowSubscription} />
+      )}
       {showSettings && <Settings open={showSettings} onOpenChange={setShowSettings} />}
       {showTopUp && <TopUpBalance open={showTopUp} onOpenChange={setShowTopUp} user={user} />}
     </Select.SelectProvider>

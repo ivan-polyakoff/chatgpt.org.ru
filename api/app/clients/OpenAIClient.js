@@ -1142,7 +1142,7 @@ ${convo}
       let modelOptions = { ...this.modelOptions };
 
       if (typeof onProgress === 'function') {
-        modelOptions.stream = true;
+        modelOptions.stream = false;
       }
       if (this.isChatCompletion) {
         modelOptions.messages = payload;
@@ -1377,7 +1377,7 @@ ${convo}
         /** @type {OpenAI.OpenAI.CompletionCreateParamsStreaming} */
         const params = {
           ...modelOptions,
-          stream: true,
+          stream: false,
         };
         if (
           this.options.endpoint === EModelEndpoint.openAI ||

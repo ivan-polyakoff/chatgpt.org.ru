@@ -30,6 +30,11 @@ import type {
   SharedLinksListParams,
   SharedLinksResponse,
 } from 'librechat-data-provider';
+import {
+  SUBSCRIPTION_QUERY_KEY,
+  subscriptionService,
+  TUserSubscriptionResponse,
+} from './subscription';
 
 export const useGetPresetsQuery = (
   config?: UseQueryOptions<TPreset[]>,
@@ -531,4 +536,23 @@ export const useUserTermsQuery = (
     refetchOnMount: false,
     ...config,
   });
+};
+
+/**
+ * Hook for getting the current user subscription
+ */
+export const useGetUserSubscriptionQuery = <TData = TUserSubscriptionResponse>(
+  config?: UseQueryOptions<TUserSubscriptionResponse, unknown, TData>,
+): QueryObserverResult<TData> => {
+  return useQuery<TUserSubscriptionResponse, unknown, TData>(
+    [SUBSCRIPTION_QUERY_KEY],
+    () => subscriptionService.getUserSubscription(),
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: true,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      ...config,
+    },
+  );
 };

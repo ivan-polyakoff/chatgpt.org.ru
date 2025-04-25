@@ -60,21 +60,38 @@ router.get('/:conversationId', async (req, res) => {
 
 router.post('/gen_title', async (req, res) => {
   const { conversationId } = req.body;
+  if (!conversationId) {
+    return res.status(400).json({
+      message: 'Требуется указать conversationId',
+    });
+  }
+
   const titleCache = getLogStores(CacheKeys.GEN_TITLE);
   const key = `${req.user.id}-${conversationId}`;
   let title = await titleCache.get(key);
 
   if (!title) {
+    // Если заголовок не найден, пробуем подождать немного и проверить еще раз
     await sleep(2500);
     title = await titleCache.get(key);
   }
 
   if (title) {
     await titleCache.delete(key);
-    res.status(200).json({ title });
-  } else {
-    res.status(404).json({
-      message: 'Title not found or method not implemented for the conversation\'s endpoint',
+    return res.status(200).json({ title });
+  }
+
+  // Если заголовок не найден после ожидания, пробуем создать резервный заголовок
+  try {
+    const convo = await getConvo(req.user.id, conversationId);
+    const backupTitle = convo?.title || 'Новый чат';
+
+    logger.debug(`[gen_title] Используем резервный заголовок: ${backupTitle}`);
+    return res.status(200).json({ title: backupTitle });
+  } catch (error) {
+    logger.error('[gen_title] Ошибка получения резервного заголовка:', error);
+    return res.status(404).json({
+      message: 'Не удалось сгенерировать заголовок для данного разговора',
     });
   }
 });

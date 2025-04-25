@@ -1,0 +1,47 @@
+/**
+ * Конфигурация моделей для разных типов подписок
+ * Используется как резервный вариант, если переменные окружения недоступны
+ */
+
+// Модели для бесплатного тарифа
+const FREE_MODELS = process.env.OPENAI_MODELS_FREE
+  ? process.env.OPENAI_MODELS_FREE.split(',')
+  : ['chatgpt-4o-latest', 'gemini-2.0-flash'];
+
+// Модели для тарифа MINI
+const MINI_MODELS = process.env.OPENAI_MODELS_MINI
+  ? process.env.OPENAI_MODELS_MINI.split(',')
+  : ['gpt-4.1', 'gpt-4.5-preview', 'o3-mini'];
+
+// Модели для стандартного тарифа
+const STANDARD_MODELS = process.env.OPENAI_MODELS_STANDARD
+  ? process.env.OPENAI_MODELS_STANDARD.split(',')
+  : ['gpt-4o-mini', 'gemini-2.5-pro-exp-03-25'];
+
+// Модели для PRO тарифа
+const PRO_MODELS = process.env.OPENAI_MODELS_PRO
+  ? process.env.OPENAI_MODELS_PRO.split(',')
+  : ['gpt-4o', 'gpt-4-turbo', 'claude-3-opus', 'gemini-pro-vision'];
+
+// Карта соответствия типов подписок и доступных моделей
+const SUBSCRIPTION_MODELS = {
+  FREE: FREE_MODELS,
+  MINI: MINI_MODELS,
+  STANDARD: STANDARD_MODELS,
+  PRO: PRO_MODELS,
+};
+
+// Функция для получения моделей по типу подписки
+function getModelsForPlan(planKey = 'FREE') {
+  const key = planKey.toUpperCase();
+  return SUBSCRIPTION_MODELS[key] || FREE_MODELS;
+}
+
+// Экспортируем константы и функции
+module.exports = {
+  FREE_MODELS,
+  MINI_MODELS,
+  STANDARD_MODELS,
+  PRO_MODELS,
+  getModelsForPlan,
+}; 

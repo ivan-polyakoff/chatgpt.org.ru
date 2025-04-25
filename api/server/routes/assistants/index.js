@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { uaParser, checkBan, requireJwtAuth } = require('~/server/middleware');
+const checkSubscription = require('~/server/middleware/checkSubscription');
 
 const { v1 } = require('./v1');
 const chatV1 = require('./chatV1');
@@ -9,6 +10,7 @@ const chatV2 = require('./chatV2');
 
 router.use(requireJwtAuth);
 router.use(checkBan);
+router.use(checkSubscription);
 router.use(uaParser);
 router.use('/v1/', v1);
 router.use('/v1/chat', chatV1);

@@ -13,6 +13,7 @@ const {
 const { getStats } = require('~/server/controllers/admin/StatsController');
 const { listPromoCodes, createPromoCode, updatePromoCode } = require('~/server/controllers/PromoCodeController');
 const { getSettings, updateSettings } = require('~/server/controllers/admin/SettingsController');
+const { assignSubscription } = require('~/server/controllers/admin/SubscriptionController');
 
 const router = express.Router();
 
@@ -39,5 +40,8 @@ router.patch('/promocodes/:id', updatePromoCode);
 // Секретные настройки: получение и обновление
 router.get('/settings', getSettings);
 router.patch('/settings', updateSettings);
+
+// Назначить подписку пользователю по email
+router.post('/assign-subscription', assignSubscription);
 
 module.exports = router;

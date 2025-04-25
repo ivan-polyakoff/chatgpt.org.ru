@@ -575,7 +575,7 @@ class StreamRunManager {
         run.id,
         {
           tool_outputs,
-          stream: true,
+          stream: false,
         },
         this.streamOptions,
       );

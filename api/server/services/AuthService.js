@@ -23,6 +23,8 @@ const { isEnabled, checkEmailConfig, sendEmail } = require('~/server/utils');
 const { isEmailDomainAllowed } = require('~/server/services/domains');
 const { registerSchema } = require('~/strategies/validators');
 const { logger } = require('~/config');
+const SubscriptionPlan = require('~/models/SubscriptionPlan');
+const UserSubscription = require('~/models/UserSubscription');
 
 const domains = {
   client: process.env.DOMAIN_CLIENT,
@@ -226,6 +228,26 @@ const registerUser = async (user, additionalData = {}) => {
       });
     } else {
       await updateUser(newUserId, { emailVerified: true });
+    }
+
+    // Assign free subscription to new user
+    try {
+      const freePlan = await SubscriptionPlan.findOne({ key: 'free' }).lean();
+      if (freePlan) {
+        const now = new Date();
+        const endDate = freePlan.durationDays > 0
+          ? new Date(now.getTime() + freePlan.durationDays * 24 * 60 * 60 * 1000)
+          : new Date('9999-12-31');
+        await UserSubscription.create({
+          user: newUser._id,
+          plan: freePlan._id,
+          startDate: now,
+          endDate,
+          remainingMessages: freePlan.messageLimit,
+        });
+      }
+    } catch (subErr) {
+      logger.error('[registerUser] Error assigning free subscription', subErr);
     }
 
     return { status: 200, message: genericVerificationMessage };

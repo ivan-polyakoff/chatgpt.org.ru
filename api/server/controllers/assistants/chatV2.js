@@ -31,6 +31,7 @@ const getLogStores = require('~/cache/getLogStores');
 const { getModelMaxTokens } = require('~/utils');
 const { getOpenAIClient } = require('./helpers');
 const { logger } = require('~/config');
+const UserSubscription = require('~/models/UserSubscription');
 
 /**
  * @route POST /
@@ -444,6 +445,13 @@ const chatV2 = async (req, res) => {
       await userMessagePromise;
     }
     await saveAssistantMessage(req, { ...responseMessage, model });
+
+    if (req.userSubscription && req.userSubscription.remainingMessages > 0) {
+      await UserSubscription.findByIdAndUpdate(
+        req.userSubscription._id,
+        { $inc: { remainingMessages: -1 } },
+      );
+    }
 
     if (parentMessageId === Constants.NO_PARENT && !_thread_id) {
       addTitle(req, {

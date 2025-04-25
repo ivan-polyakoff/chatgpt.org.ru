@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useAuthContext } from '~/hooks/AuthContext';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { X, CreditCard, Wallet, ArrowRight } from 'lucide-react';
 import { useToastContext } from '~/Providers';
 import { cn } from '~/utils';
 import { useLocalize } from '~/hooks';
 import axios from 'axios';
 import { useQueryClient } from '@tanstack/react-query';
+import { useGetUserBalance } from '~/data-provider';
 
 type TopUpBalanceProps = {
   open: boolean;
@@ -22,11 +23,30 @@ enum PaymentStatus {
   FAILURE
 }
 
+enum PaymentMethod {
+  CARD,
+  MIR,
+  SBP
+}
+
+// Маппинг токенов к их ценам
+interface TokenPrice {
+  [key: string]: number;
+}
+
+const tokenPrices: TokenPrice = {
+  '500000': 390,
+  '1000000': 690,
+  '2500000': 1490, 
+  '5000000': 2490
+};
+
 const TopUpBalance = ({ open, onOpenChange, user }: TopUpBalanceProps) => {
   const localize = useLocalize();
   const { showToast } = useToastContext();
   const { token } = useAuthContext();
   const queryClient = useQueryClient();
+  const balanceQuery = useGetUserBalance();
   
   const [tokens, setTokens] = useState('500000');
   const [cardNumber, setCardNumber] = useState('');
@@ -36,55 +56,70 @@ const TopUpBalance = ({ open, onOpenChange, user }: TopUpBalanceProps) => {
   const [discount, setDiscount] = useState(0);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState('');
-
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CARD);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(PaymentStatus.IDLE);
 
-  // Calculate base price и apply discount
-  const basePrice = Math.max(8, parseFloat(tokens) * (8 / 500000));
+  // Calculate price from tokenPrices и apply discount
+  const basePrice = tokenPrices[tokens] || 0;
   const price = discount > 0
     ? +(basePrice * (100 - discount) / 100).toFixed(2)
     : basePrice;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate card number (simple validation)
-    if (!cardNumber || cardNumber.length < 16) {
-      showToast({ message: 'Пожалуйста, введите корректный номер карты' });
-      return;
-    }
-
-    // Set to processing state
     setPaymentStatus(PaymentStatus.PROCESSING);
-
     try {
-      // Simulate payment process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // In a real app, you would call a payment service here
-      // For demo, we'll just simulate a successful payment 
-      
-      // Add tokens to the user's balance through a server endpoint
-      await axios.post('/api/transactions/add-balance', {
-        email: user.email,
-        tokens: parseInt(tokens, 10)
-      }, { headers: { Authorization: `Bearer ${token}` } });
-      
-      // Update balance state in the app
-      queryClient.invalidateQueries(['balance']);
-      
-      setPaymentStatus(PaymentStatus.SUCCESS);
-      
-      // Reset form after successful payment
-      setTimeout(() => {
-        setTokens('500000');
-        setCardNumber('');
-        setExpiryDate('');
-        setCvv('');
-      }, 1000);
-      
-    } catch (error) {
+      // Создаём ссылку на оплату
+      const createRes = await axios.post('/api/transactions/create-payment', { tokens: parseInt(tokens, 10), amount: price }, { headers: { Authorization: `Bearer ${token}` } });
+      if (!createRes.data.success) throw new Error(createRes.data.message);
+      const { paymentUrl, operationId, useWebhooks } = createRes.data;
+      // Открываем страницу оплаты в новой вкладке
+      window.open(paymentUrl, '_blank');
+      // Если опрос, проверяем статус
+      if (!useWebhooks) {
+        const poll = setInterval(async () => {
+          try {
+            const statusRes = await axios.get('/api/transactions/payment-status', {
+              params: { operationId },
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            // Поддержка разных форматов: Operation пустой или массив
+            let op = statusRes.data.data;
+            if (op.Operation && Array.isArray(op.Operation)) {
+              op = op.Operation[0];
+            }
+            const status = op.status;
+            if (status === 'APPROVED') {
+              clearInterval(poll);
+              // Добавляем баланс после подтверждённой оплаты
+              await axios.post(
+                '/api/transactions/add-balance',
+                { operationId, tokens: parseInt(tokens, 10), promoCode },
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              queryClient.invalidateQueries(['balance']);
+              setPaymentStatus(PaymentStatus.SUCCESS);
+            } else if (status === 'EXPIRED') {
+              clearInterval(poll);
+              setPaymentStatus(PaymentStatus.FAILURE);
+              showToast({ message: 'Срок действия платежной ссылки истёк' });
+            } else if (['ON-REFUND', 'REFUNDED', 'REFUNDED_PARTIALLY'].includes(status)) {
+              clearInterval(poll);
+              setPaymentStatus(PaymentStatus.FAILURE);
+              showToast({ message: 'Платёж был возвращён' });
+            }
+            // если CREATED или другие, продолжаем опрос
+          } catch (err) {
+            console.error('Status check error:', err);
+          }
+        }, 2000);
+      } else {
+        showToast({ message: 'Ожидайте подтверждения оплаты через webhook' });
+      }
+    } catch (error: any) {
       console.error('Payment error:', error);
+      const detail = error.response?.data?.details || error.response?.data?.message || error.message || 'Ошибка создания платежа';
+      showToast({ message: detail });
       setPaymentStatus(PaymentStatus.FAILURE);
     }
   };
@@ -98,19 +133,35 @@ const TopUpBalance = ({ open, onOpenChange, user }: TopUpBalanceProps) => {
     }
   }, [open]);
 
+  // Card formatter with spaces
+  const formatCardNumber = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/\D/g, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = matches && matches[0] || '';
+    const parts = [] as Array<string>;
+    for (let i = 0; i < match.length; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    if (parts.length) {
+      return parts.join(' ');
+    } else {
+      return value;
+    }
+  };
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content 
-          className="fixed left-[50%] top-[50%] z-50 w-full max-w-md translate-x-[-50%] translate-y-[-50%] rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
+          className="fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] border border-gray-200 dark:border-gray-700"
         >
-          <Dialog.Title className="text-lg font-medium leading-6 text-gray-800 dark:text-gray-200">
+          <Dialog.Title className="text-xl font-semibold leading-6 text-gray-800 dark:text-gray-100 flex items-center">
             {paymentStatus === PaymentStatus.SUCCESS 
-              ? 'Оплата прошла успешно!'
+              ? '✅ Оплата прошла успешно!'
               : paymentStatus === PaymentStatus.FAILURE
-                ? 'Ошибка оплаты'
-                : 'Пополнить баланс токенов'}
+                ? '❌ Ошибка оплаты'
+                : '💰 Пополнить баланс токенов'}
           </Dialog.Title>
           
           <Dialog.Description className="mt-2 text-sm text-gray-600 dark:text-gray-300">
@@ -118,20 +169,31 @@ const TopUpBalance = ({ open, onOpenChange, user }: TopUpBalanceProps) => {
               ? `Ваш баланс был пополнен на ${tokens} токенов`
               : paymentStatus === PaymentStatus.FAILURE
                 ? 'К сожалению, возникла ошибка при обработке платежа. Пожалуйста, попробуйте снова.'
-                : 'Выберите количество токенов для пополнения.'}
+                : 'Выберите количество токенов и предпочитаемый способ оплаты.'}
           </Dialog.Description>
           
           {paymentStatus === PaymentStatus.IDLE && (
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-gray-800 dark:to-gray-700 p-4 rounded-xl mb-4">
+                <div className="flex justify-between text-gray-700 dark:text-gray-200">
+                  <span className="font-medium">
+                    Баланс пользователя: 
+                  </span>
+                  <span className="font-mono">{balanceQuery.data ? parseFloat(balanceQuery.data).toFixed(2) : '0.00'} токенов</span>
+                </div>
+              </div>
+              
               <div>
-                <label htmlFor="promo" className="block text-sm font-medium text-gray-700">Промокод</label>
+                <label htmlFor="promo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Промокод (если есть)
+                </label>
                 <div className="mt-1 flex space-x-2">
                   <input
                     id="promo"
                     value={promoCode}
                     onChange={(e) => setPromoCode(e.target.value)}
-                    placeholder="Введите код"
-                    className="flex-1 rounded-md border-gray-300 px-3 py-2"
+                    placeholder="Введите промокод для скидки"
+                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
                   />
                   <button
                     type="button"
@@ -141,7 +203,7 @@ const TopUpBalance = ({ open, onOpenChange, user }: TopUpBalanceProps) => {
                       try {
                         const res = await axios.post(
                           '/api/promocodes/validate',
-                          { code: promoCode },
+                          { code: promoCode, activate: false },
                           { headers: { Authorization: `Bearer ${token}` } }
                         );
                         setDiscount(res.data.discountPercent);
@@ -152,11 +214,13 @@ const TopUpBalance = ({ open, onOpenChange, user }: TopUpBalanceProps) => {
                         setPromoLoading(false);
                       }
                     }}
-                    className="bg-gray-600 text-white px-4 rounded"
-                  >{promoLoading ? '...' : 'Проверить'}</button>
+                    className={`px-4 rounded-md text-white font-medium ${promoLoading || !promoCode ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                  >
+                    {promoLoading ? 'Проверка...' : 'Применить'}
+                  </button>
                 </div>
-                {discount > 0 && <p className="mt-1 text-green-600">Скидка {discount}% применена</p>}
-                {promoError && <p className="mt-1 text-red-600">{promoError}</p>}
+                {discount > 0 && <p className="mt-1 text-green-600 text-sm">✓ Скидка {discount}% применена!</p>}
+                {promoError && <p className="mt-1 text-red-600 text-sm">⚠️ {promoError}</p>}
               </div>
               
               <div>
@@ -167,119 +231,74 @@ const TopUpBalance = ({ open, onOpenChange, user }: TopUpBalanceProps) => {
                   id="tokens"
                   value={tokens}
                   onChange={(e) => setTokens(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white py-2"
                 >
-                  <option value="500000">500,000 токенов (8 USD)</option>
-                  <option value="1000000">1,000,000 токенов (16 USD)</option>
-                  <option value="2500000">2,500,000 токенов (40 USD)</option>
-                  <option value="5000000">5,000,000 токенов (80 USD)</option>
+                  <option value="500000">500,000 токенов (390 рублей)</option>
+                  <option value="1000000">1,000,000 токенов (690 рублей)</option>
+                  <option value="2500000">2,500,000 токенов (1490 рублей)</option>
+                  <option value="5000000">5,000,000 токенов (2490 рублей)</option>
                 </select>
               </div>
               
-              <div>
-                <label htmlFor="card" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Номер карты
-                </label>
-                <input
-                  type="text"
-                  id="card"
-                  maxLength={16}
-                  placeholder="1234 5678 9012 3456"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, ''))}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  required
-                />
-              </div>
-              
-              <div className="flex space-x-4">
-                <div className="flex-1">
-                  <label htmlFor="expiry" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Срок действия
-                  </label>
-                  <input
-                    type="text"
-                    id="expiry"
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    value={expiryDate}
-                    onChange={(e) => {
-                      let value = e.target.value.replace(/\D/g, '');
-                      if (value.length > 2) {
-                        value = `${value.slice(0, 2)}/${value.slice(2, 4)}`;
-                      }
-                      setExpiryDate(value);
-                    }}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    required
-                  />
-                </div>
-                
-                <div className="w-24">
-                  <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    CVV
-                  </label>
-                  <input
-                    type="text"
-                    id="cvv"
-                    placeholder="123"
-                    maxLength={3}
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-md mt-4">
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg mt-4">
                 <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                  <span>Токены:</span>
-                  <span>{parseInt(tokens, 10).toLocaleString()}</span>
+                  <span>Количество токенов:</span>
+                  <span className="font-mono font-medium">{parseInt(tokens, 10).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-gray-700 dark:text-gray-300 mt-1">
-                  <span>Цена:</span>
-                  <span>${price.toFixed(2)} USD</span>
+                {discount > 0 && (
+                  <div className="flex justify-between text-gray-700 dark:text-gray-300 mt-1">
+                    <span>Скидка по промокоду:</span>
+                    <span className="font-medium text-green-600 dark:text-green-400">-{discount}%</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-gray-900 dark:text-white font-medium mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-800">
+                  <span>Итого к оплате:</span>
+                  <span className="font-mono">{price.toFixed(2)} рублей</span>
                 </div>
               </div>
               
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
-                  className="mr-2 inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-gray-600 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:hover:bg-indigo-800"
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center"
                 >
-                  Оплатить ${price.toFixed(2)}
+                  Оплатить {price.toFixed(2)} ₽
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </button>
               </div>
             </form>
           )}
           
           {paymentStatus === PaymentStatus.PROCESSING && (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-t-indigo-500"></div>
-              <p className="mt-4 text-gray-700 dark:text-gray-300">Обработка платежа...</p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="h-16 w-16 animate-spin rounded-full border-4 border-indigo-200 dark:border-indigo-800 border-t-indigo-600 dark:border-t-indigo-400"></div>
+              <p className="mt-6 text-gray-700 dark:text-gray-300">Обработка платежа...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Пожалуйста, не закрывайте окно</p>
             </div>
           )}
           
           {paymentStatus === PaymentStatus.SUCCESS && (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="h-16 w-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600 dark:text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="h-20 w-20 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600 dark:text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <p className="mt-4 text-gray-700 dark:text-gray-300">Спасибо за пополнение! Токены добавлены на ваш счет.</p>
+              <h3 className="mt-6 text-xl font-medium text-gray-900 dark:text-white">Оплата успешно завершена!</h3>
+              <p className="mt-2 text-center text-gray-600 dark:text-gray-300">
+                {parseInt(tokens, 10).toLocaleString()} токенов добавлены на ваш счет
+              </p>
               
               <button
                 onClick={() => onOpenChange(false)}
-                className="mt-6 inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:hover:bg-indigo-800"
+                className="mt-8 inline-flex justify-center items-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
                 Готово
               </button>
@@ -287,24 +306,27 @@ const TopUpBalance = ({ open, onOpenChange, user }: TopUpBalanceProps) => {
           )}
           
           {paymentStatus === PaymentStatus.FAILURE && (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="h-16 w-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600 dark:text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="h-20 w-20 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600 dark:text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <p className="mt-4 text-gray-700 dark:text-gray-300">Произошла ошибка при обработке платежа. Пожалуйста, проверьте данные карты и попробуйте снова.</p>
+              <h3 className="mt-6 text-xl font-medium text-gray-900 dark:text-white">Ошибка платежа</h3>
+              <p className="mt-2 text-center text-gray-600 dark:text-gray-300">
+                Произошла ошибка при обработке платежа. Пожалуйста, проверьте данные и попробуйте снова.
+              </p>
               
-              <div className="flex mt-6 space-x-3">
+              <div className="flex mt-8 space-x-4">
                 <button
                   onClick={() => setPaymentStatus(PaymentStatus.IDLE)}
-                  className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:hover:bg-indigo-800"
+                  className="inline-flex justify-center items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                   Попробовать снова
                 </button>
                 <button
                   onClick={() => onOpenChange(false)}
-                  className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-gray-600 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700"
+                  className="inline-flex justify-center items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
                 >
                   Отмена
                 </button>

@@ -148,6 +148,7 @@ const startServer = async () => {
   app.use('/api/transactions', routes.transactions);
   app.use('/api/admin', routes.admin);
   app.use('/api/promocodes', promoRoutes);
+  app.use('/api/subscriptions', routes.subscriptions);
 
   app.use((req, res) => {
     res.set({
