@@ -102,6 +102,7 @@
   "com_auth_full_name": "Full name",
   "com_auth_github_login": "Continue with Github",
   "com_auth_google_login": "Continue with Google",
+  "com_auth_yandex_login": "Continue with Yandex",
   "com_auth_here": "HERE",
   "com_auth_login": "Login",
   "com_auth_login_with_new_password": "You may now login with your new password.",
@@ -858,5 +859,10 @@
   "com_endpoint_deprecated_info": "This endpoint is deprecated and may be removed in future versions, please use the agent endpoint instead",
   "com_endpoint_deprecated_info_a11y": "The plugin endpoint is deprecated and may be removed in future versions, please use the agent endpoint instead",
   "com_user_message": "You",
-  "com_warning_resubmit_unsupported": "Resubmitting the AI message is not supported for this endpoint."
+  "com_warning_resubmit_unsupported": "Resubmitting the AI message is not supported for this endpoint.",
+  "com_search_mode": "Search",
+  "com_search_mode_info": "Uses a model with internet search capabilities to retrieve up-to-date information",
+  "com_thinking_mode": "Thinking",
+  "com_thinking_mode_info": "Switches to a model with enhanced analytical capabilities for solving complex problems",
+  "com_auth_yandex_login": "Continue with Yandex"
 }

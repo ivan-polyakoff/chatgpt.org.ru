@@ -1,29 +1,26 @@
 ﻿/**
- * РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ РјРѕРґРµР»РµР№ РґР»СЏ СЂР°Р·РЅС‹С… С‚РёРїРѕРІ РїРѕРґРїРёСЃРѕРє
- * РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РєР°Рє СЂРµР·РµСЂРІРЅС‹Р№ РІР°СЂРёР°РЅС‚, РµСЃР»Рё РїРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ РЅРµРґРѕСЃС‚СѓРїРЅС‹
+ * Конфигурация моделей для разных типов подписок
+ * Приоритет использования: переменные окружения, затем значения по умолчанию
  */
 
-// РњРѕРґРµР»Рё РґР»СЏ Р±РµСЃРїР»Р°С‚РЅРѕРіРѕ С‚Р°СЂРёС„Р°
-const FREE_MODELS = process.env.OPENAI_MODELS_FREE
-  ? process.env.OPENAI_MODELS_FREE.split(',')
-  : ['chatgpt-4o-latest', 'gemini-2.0-flash'];
+// Загружаем переменные окружения, если используется dotenv
+// require('dotenv').config(); // раскомментируйте, если используете dotenv
 
-// РњРѕРґРµР»Рё РґР»СЏ С‚Р°СЂРёС„Р° MINI
-const MINI_MODELS = process.env.OPENAI_MODELS_MINI
-  ? process.env.OPENAI_MODELS_MINI.split(',')
-  : ['gpt-4.1', 'gpt-4.5-preview', 'o3-mini'];
+// Функция для получения массива моделей из переменной окружения
+function getModelsFromEnv(envKey, defaultValue = []) {
+  if (process.env[envKey] && process.env[envKey].trim()) {
+    return process.env[envKey].split(',').map(model => model.trim()).filter(Boolean);
+  }
+  return defaultValue;
+}
 
-// РњРѕРґРµР»Рё РґР»СЏ СЃС‚Р°РЅРґР°СЂС‚РЅРѕРіРѕ С‚Р°СЂРёС„Р°
-const STANDARD_MODELS = process.env.OPENAI_MODELS_STANDARD
-  ? process.env.OPENAI_MODELS_STANDARD.split(',')
-  : ['gpt-4o-mini', 'gemini-2.5-pro-exp-03-25'];
+// Модели для разных тарифов, берутся из переменных окружения
+const FREE_MODELS = getModelsFromEnv('OPENAI_MODELS_FREE', []);
+const MINI_MODELS = getModelsFromEnv('OPENAI_MODELS_MINI', []);
+const STANDARD_MODELS = getModelsFromEnv('OPENAI_MODELS_STANDARD', []);
+const PRO_MODELS = getModelsFromEnv('OPENAI_MODELS_PRO', []);
 
-// РњРѕРґРµР»Рё РґР»СЏ PRO С‚Р°СЂРёС„Р°
-const PRO_MODELS = process.env.OPENAI_MODELS_PRO
-  ? process.env.OPENAI_MODELS_PRO.split(',')
-  : ['gpt-4o', 'gpt-4-turbo', 'claude-3-opus', 'gemini-pro-vision'];
-
-// РљР°СЂС‚Р° СЃРѕРѕС‚РІРµС‚СЃС‚РІРёСЏ С‚РёРїРѕРІ РїРѕРґРїРёСЃРѕРє Рё РґРѕСЃС‚СѓРїРЅС‹С… РјРѕРґРµР»РµР№
+// Карта соответствия типов подписок и доступных моделей
 const SUBSCRIPTION_MODELS = {
   FREE: FREE_MODELS,
   MINI: MINI_MODELS,
@@ -31,17 +28,20 @@ const SUBSCRIPTION_MODELS = {
   PRO: PRO_MODELS,
 };
 
-// Р¤СѓРЅРєС†РёСЏ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РјРѕРґРµР»РµР№ РїРѕ С‚РёРїСѓ РїРѕРґРїРёСЃРєРё
+// Функция для получения моделей по типу подписки
 function getModelsForPlan(planKey = 'FREE') {
-  const key = planKey.toUpperCase();
-  return SUBSCRIPTION_MODELS[key] || FREE_MODELS;
+  const normalizedKey = planKey.toUpperCase();
+  console.log(`[subscriptionConfig] Запрос моделей для тарифа: ${planKey}, используем ключ: ${normalizedKey}`);
+  const models = SUBSCRIPTION_MODELS[normalizedKey] || FREE_MODELS;
+  console.log(`[subscriptionConfig] Модели для тарифа ${normalizedKey}:`, models);
+  return models;
 }
 
-// Р­РєСЃРїРѕСЂС‚РёСЂСѓРµРј РєРѕРЅСЃС‚Р°РЅС‚С‹ Рё С„СѓРЅРєС†РёРё
+// Экспортируем константы и функции
 module.exports = {
   FREE_MODELS,
   MINI_MODELS,
   STANDARD_MODELS,
   PRO_MODELS,
   getModelsForPlan,
-}; 
+};

@@ -14,6 +14,7 @@ const { getStats } = require('~/server/controllers/admin/StatsController');
 const { listPromoCodes, createPromoCode, updatePromoCode } = require('~/server/controllers/PromoCodeController');
 const { getSettings, updateSettings } = require('~/server/controllers/admin/SettingsController');
 const { assignSubscription } = require('~/server/controllers/admin/SubscriptionController');
+const { getModels, updateModels } = require('~/server/controllers/admin/ModelsController');
 
 const router = express.Router();
 
@@ -43,5 +44,9 @@ router.patch('/settings', updateSettings);
 
 // Назначить подписку пользователю по email
 router.post('/assign-subscription', assignSubscription);
+
+// Управление моделями по тарифам
+router.get('/models', getModels);
+router.patch('/models', updateModels);
 
 module.exports = router;

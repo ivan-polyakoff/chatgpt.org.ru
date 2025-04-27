@@ -43,6 +43,33 @@ const { runTitleChain } = require('./chains');
 const { tokenSplit } = require('./document');
 const BaseClient = require('./BaseClient');
 const { logger } = require('~/config');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
+const mongoose = require('mongoose');
+
+// Схема для сохранения изображений DALL-E 3
+let DallEImageSchema;
+let DallEImage;
+
+try {
+  // Проверяем, определена ли уже схема
+  DallEImage = mongoose.model('DallEImage');
+} catch (error) {
+  // Если схема не определена, создаем её
+  DallEImageSchema = new mongoose.Schema({
+    imageId: { type: String, required: true, unique: true },
+    userId: { type: String, required: true },
+    prompt: { type: String, required: true },
+    fileName: { type: String, required: true },
+    filePath: { type: String, required: true },
+    originalUrl: { type: String },
+    createdAt: { type: Date, default: Date.now },
+  });
+  
+  DallEImage = mongoose.model('DallEImage', DallEImageSchema);
+}
 
 class OpenAIClient extends BaseClient {
   constructor(apiKey, options = {}) {
@@ -71,6 +98,18 @@ class OpenAIClient extends BaseClient {
     this.isOmni;
     /** @type {SplitStreamHandler | undefined} */
     this.streamHandler;
+    
+    // Определяем директорию для сохранения изображений
+    this.uploadDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+    this.dallEImageDir = path.join(this.uploadDir, 'dall-e');
+    
+    // Создаем директорию, если она не существует
+    if (!fs.existsSync(this.uploadDir)) {
+      fs.mkdirSync(this.uploadDir, { recursive: true });
+    }
+    if (!fs.existsSync(this.dallEImageDir)) {
+      fs.mkdirSync(this.dallEImageDir, { recursive: true });
+    }
   }
 
   // TODO: PluginsClient calls this 3x, unneeded
@@ -538,6 +577,44 @@ class OpenAIClient extends BaseClient {
 
   /** @type {sendCompletion} */
   async sendCompletion(payload, opts = {}) {
+    // Если модель DALL-E 3, используем специальный метод для генерации изображений
+    if (this.isDallE3Model()) {
+      let prompt = '';
+      
+      if (typeof payload === 'string') {
+        prompt = payload;
+      } else if (Array.isArray(payload)) {
+        // Извлекаем последнее сообщение пользователя как промт
+        const userMessages = payload.filter(msg => msg.role === 'user');
+        if (userMessages.length > 0) {
+          const lastUserMessage = userMessages[userMessages.length - 1];
+          prompt = typeof lastUserMessage.content === 'string' 
+            ? lastUserMessage.content 
+            : lastUserMessage.content?.[0]?.text || '';
+        }
+      }
+      
+      if (!prompt) {
+        throw new Error('Необходимо указать текстовый промт для генерации изображения');
+      }
+      
+      // Генерируем изображение с DALL-E 3
+      const imageResult = await this.generateDallE3Image(prompt);
+      
+      // Формируем специальный ответ, который будет обработан на клиенте
+      let responseText;
+      
+      if (imageResult.isOriginalUrl) {
+        // Если используется оригинальный URL (из-за ошибки сохранения)
+        responseText = `![DALL-E 3 Image](${imageResult.filePath})\n\n**Промт:** ${imageResult.prompt}\n\n**Примечание:** Это временная ссылка и может перестать работать через 24 часа.`;
+      } else {
+        responseText = `![DALL-E 3 Image](${imageResult.imageUrl})\n\n**Промт:** ${imageResult.prompt}\n\n**Уточненный промт:** ${imageResult.revised_prompt}`;
+      }
+      
+      return responseText;
+    }
+    
+    // Стандартный код для текстовых моделей
     let reply = '';
     let result = null;
     let streamResult = null;
@@ -1565,6 +1642,149 @@ ${convo}
         logger.error('[OpenAIClient.chatCompletion] Unhandled error type', err);
         throw err;
       }
+    }
+  }
+
+  // Проверяем, является ли модель DALL-E 3
+  isDallE3Model() {
+    const model = this.modelOptions.model.toLowerCase();
+    return model === 'dall-e-3' || model.includes('dall-e-3');
+  }
+  
+  // Метод для сохранения изображения из URL
+  async saveImageFromUrl(imageUrl, prompt, userId) {
+    try {
+      const imageId = uuidv4();
+      const fileName = `dalle-${imageId}.png`;
+      const filePath = path.join(this.dallEImageDir, fileName);
+      
+      // Загружаем изображение с повторными попытками
+      let response;
+      let retries = 3;
+      
+      while (retries > 0) {
+        try {
+          response = await axios.get(imageUrl, { 
+            responseType: 'arraybuffer',
+            timeout: 10000  // 10 секунд таймаут
+          });
+          break; // Если успешно, выходим из цикла
+        } catch (err) {
+          retries--;
+          if (retries === 0) throw err; // Если все попытки исчерпаны, выбрасываем ошибку
+          await sleep(1000); // Ждем 1 секунду перед следующей попыткой
+        }
+      }
+      
+      // Сохраняем локально
+      fs.writeFileSync(filePath, response.data);
+      
+      // Проверяем, что файл действительно был создан
+      if (!fs.existsSync(filePath)) {
+        throw new Error('Файл не был создан после записи');
+      }
+      
+      // Сохраняем в базе данных
+      const imageData = new DallEImage({
+        imageId,
+        userId,
+        prompt,
+        fileName,
+        filePath,
+        originalUrl: imageUrl
+      });
+      
+      await imageData.save();
+      
+      // Возвращаем путь к изображению на сервере
+      const serverPath = `/uploads/dall-e/${fileName}`;
+      
+      logger.debug(`[OpenAIClient] DALL-E image saved successfully: ${serverPath}`);
+      
+      return {
+        imageId,
+        filePath: serverPath
+      };
+    } catch (error) {
+      logger.error('[OpenAIClient] Error saving DALL-E image:', error);
+      
+      // В случае ошибки при сохранении возвращаем оригинальный URL
+      // Это не идеально, так как URL будет временным, но лучше чем ничего
+      return {
+        imageId: 'error',
+        filePath: imageUrl, // Используем исходный URL как запасной вариант
+        error: error.message,
+        isOriginalUrl: true
+      };
+    }
+  }
+  
+  // Метод для генерации изображения с DALL-E 3
+  async generateDallE3Image(prompt) {
+    try {
+      logger.debug('[OpenAIClient] Generating DALL-E 3 image with prompt:', prompt);
+      
+      // Используем forgetapi.ru вместо официального API OpenAI
+      const apiUrl = 'https://forgetapi.ru/v1/images/generations';
+      
+      // Настройки генерации изображения
+      const imageParams = {
+        model: "dall-e-3",
+        prompt: prompt,
+        n: 1, // Количество изображений
+        size: "16:9", // Размер изображения
+        quality: "standard", // Качество изображения
+        response_format: "url" // Формат ответа - URL
+      };
+      
+      // Заголовки запроса
+      const headers = {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      };
+      
+      // Вызываем API для генерации изображения через axios
+      logger.debug('[OpenAIClient] Sending request to forgetapi.ru for DALL-E 3 image generation');
+      const response = await axios.post(apiUrl, imageParams, { headers });
+      
+      if (!response.data || !response.data.data || response.data.data.length === 0) {
+        throw new Error('Не удалось сгенерировать изображение: сервер вернул пустой ответ');
+      }
+      
+      const generatedImage = response.data.data[0];
+      
+      if (!generatedImage.url) {
+        logger.error('[OpenAIClient] forgetapi.ru returned response without image URL:', generatedImage);
+        throw new Error('Сервер не вернул URL изображения');
+      }
+      
+      logger.debug('[OpenAIClient] Successfully received image URL from forgetapi.ru');
+      
+      // Сохраняем изображение
+      const userId = this.user ?? this.options.req.user?.id;
+      const savedImage = await this.saveImageFromUrl(generatedImage.url, prompt, userId);
+      
+      // Возвращаем результат в специальном формате для клиента
+      return {
+        type: 'dall-e-3',
+        imageUrl: savedImage.filePath,
+        imageId: savedImage.imageId,
+        prompt: prompt,
+        revised_prompt: generatedImage.revised_prompt || prompt,
+        isOriginalUrl: savedImage.isOriginalUrl
+      };
+    } catch (error) {
+      // Подробно логируем ошибку для отладки
+      if (error.response) {
+        logger.error('[OpenAIClient] DALL-E 3 API error response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+      } else {
+        logger.error('[OpenAIClient] DALL-E 3 generation error:', error);
+      }
+      
+      throw new Error(`Ошибка генерации DALL-E 3: ${error.message || 'Неизвестная ошибка'}`);
     }
   }
 }

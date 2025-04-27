@@ -19,10 +19,14 @@ function ModelSelectorContent() {
     searchValue,
     searchResults,
     selectedValues,
+    // Subscription
+    userSubscription,
+    isLoadingSubscription,
 
     // Functions
     setSearchValue,
     setSelectedValues,
+    getFilteredModels,
     // Dialog
     keyDialogOpen,
     onOpenChange,
@@ -50,6 +54,34 @@ function ModelSelectorContent() {
     [localize, modelSpecs, selectedValues, mappedEndpoints],
   );
 
+  // Фильтруем доступные эндпоинты, чтобы применить ограничения на модели OpenAI
+  const filteredEndpoints = useMemo(() => {
+    if (!mappedEndpoints) {
+      return [];
+    }
+
+    // Для эндпоинтов без моделей изменений нет
+    return mappedEndpoints.map(endpoint => {
+      if (!endpoint.hasModels || endpoint.value !== 'openAI') {
+        return endpoint;
+      }
+
+      // Для OpenAI фильтруем доступные модели в зависимости от подписки
+      const modelNames = endpoint.models ? endpoint.models.map(model => model.name) : [];
+      const filteredModelNames = getFilteredModels('openAI', modelNames);
+      
+      // Преобразуем обратно в формат моделей
+      const filteredModels = endpoint.models?.filter(model => 
+        filteredModelNames.includes(model.name)
+      ) || [];
+      
+      return {
+        ...endpoint,
+        models: filteredModels,
+      };
+    });
+  }, [mappedEndpoints, getFilteredModels]);
+
   const trigger = (
     <button
       className="my-1 flex h-10 w-full max-w-[70vw] items-center justify-center gap-2 rounded-xl border border-border-light bg-surface-secondary px-3 py-2 text-sm text-text-primary hover:bg-surface-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
@@ -63,6 +95,17 @@ function ModelSelectorContent() {
       <span className="flex-grow truncate text-left">{selectedDisplayValue}</span>
     </button>
   );
+
+  // Показываем состояние загрузки если загружаем данные о подписке
+  if (isLoadingSubscription) {
+    return (
+      <div className="relative flex w-full max-w-md flex-col items-center gap-2">
+        <div className="flex w-full items-center justify-center py-2">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex w-full max-w-md flex-col items-center gap-2">
@@ -84,7 +127,7 @@ function ModelSelectorContent() {
         ) : (
           <>
             {renderModelSpecs(modelSpecs, selectedValues.modelSpec || '')}
-            {renderEndpoints(mappedEndpoints ?? [])}
+            {renderEndpoints(filteredEndpoints)}
           </>
         )}
       </Menu>

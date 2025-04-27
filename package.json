@@ -1,7 +1,10 @@
 {
   "name": "LibreChat",
-  "version": "v0.7.7",
+  "version": "v1",
   "description": "",
+  "_moduleAliases": {
+    "~": "api"
+  },
   "workspaces": [
     "api",
     "client",
@@ -144,10 +147,7 @@
   },
   "dependencies": {
     "chart.js": "^4.4.9",
-    "lucide-react": "^0.488.0",
-    "module-alias": "^2.2.3",
-    "react-chartjs-2": "^5.3.0",
-    "recharts": "^2.15.2",
-    "zustand": "^5.0.3"
+    "passport-yandex": "^0.0.5",
+    "react-chartjs-2": "^5.3.0"
   }
 }

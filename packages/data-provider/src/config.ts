@@ -7,7 +7,7 @@ import { fileConfigSchema } from './file-config';
 import { FileSources } from './types/files';
 import { MCPServersSchema } from './mcp';
 
-export const defaultSocialLogins = ['google', 'facebook', 'openid', 'github', 'discord'];
+export const defaultSocialLogins = ['google', 'facebook', 'openid', 'github', 'discord', 'yandex'];
 
 export const defaultRetrievalModels = [
   'gpt-4o',
@@ -514,6 +514,7 @@ export type TStartupConfig = {
   facebookLoginEnabled: boolean;
   githubLoginEnabled: boolean;
   googleLoginEnabled: boolean;
+  yandexLoginEnabled: boolean;
   openidLoginEnabled: boolean;
   appleLoginEnabled: boolean;
   openidLabel: string;

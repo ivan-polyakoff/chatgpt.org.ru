@@ -11,6 +11,7 @@ import React, {
 import { useRecoilValue, useRecoilCallback } from 'recoil';
 import type { LucideIcon } from 'lucide-react';
 import CodeInterpreter from './CodeInterpreter';
+import SearchAndThinkingButtons from './SearchAndThinkingButtons';
 import type { BadgeItem } from '~/common';
 import { useChatBadges } from '~/hooks';
 import { Badge } from '~/components/ui';
@@ -352,11 +353,12 @@ function BadgeRow({
           />
         </div>
       )}
-      {showEphemeralBadges === true && (
-        <>
+      {showEphemeralBadges && (
+        <div className="flex space-x-2 items-center">
           <CodeInterpreter conversationId={conversationId} />
+          <SearchAndThinkingButtons conversationId={conversationId} />
           <MCPSelect conversationId={conversationId} />
-        </>
+        </div>
       )}
       {ghostBadge && (
         <div

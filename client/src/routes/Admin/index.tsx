@@ -8,7 +8,8 @@ import StatsPage from '~/components/Admin/StatsPage';
 import PromocodesPage from '~/components/Admin/PromocodesPage';
 import SettingsPage from '~/components/Admin/SettingsPage';
 import SubscriptionsPage from '~/components/Admin/SubscriptionsPage';
-import { Moon, Sun, User, DollarSign, BarChart3, Tag, KeyRound, Gift } from 'lucide-react';
+import ModelsPage from '~/components/Admin/ModelsPage';
+import { Moon, Sun, User, DollarSign, BarChart3, Tag, KeyRound, Gift, Code } from 'lucide-react';
 
 function AdminLayout() {
   const { user, isAuthenticated } = useAuthRedirect();
@@ -127,6 +128,19 @@ function AdminLayout() {
             <Gift className="h-5 w-5 mr-3" />
             Подписки
           </NavLink>
+          <NavLink 
+            to="models"
+            className={({ isActive }) =>
+              `flex items-center px-4 py-3 rounded-lg transition-all ${
+                isActive
+                  ? 'bg-white text-blue-700 dark:bg-indigo-950 dark:text-white font-medium shadow-md'
+                  : 'text-blue-100 hover:bg-blue-700 dark:hover:bg-indigo-800'
+              }`
+            }
+          >
+            <Code className="h-5 w-5 mr-3" />
+            Модели
+          </NavLink>
         </nav>
         <div className="absolute bottom-0 w-64 p-6 border-t border-blue-700 dark:border-indigo-800">
           <div className="flex justify-between items-center mb-4">
@@ -165,6 +179,7 @@ const adminRoutes = {
     { path: 'promocodes', element: <PromocodesPage /> },
     { path: 'settings', element: <SettingsPage /> },
     { path: 'subscriptions', element: <SubscriptionsPage /> },
+    { path: 'models', element: <ModelsPage /> },
   ],
 };
 

@@ -100,6 +100,7 @@
   "com_auth_full_name": "Полное имя",
   "com_auth_github_login": "Войти с помощью Github",
   "com_auth_google_login": "Войти с помощью Google",
+  "com_auth_yandex_login": "Войти с помощью Яндекс",
   "com_auth_here": "ЗДЕСЬ",
   "com_auth_login": "Войти",
   "com_auth_login_with_new_password": "Теперь вы можете войти с новым паролем.",
@@ -825,5 +826,9 @@
   "com_ui_yes": "Да",
   "com_ui_zoom": "Масштаб",
   "com_user_message": "Вы",
-  "com_warning_resubmit_unsupported": "Повторная отправка сообщения ИИ не поддерживается для данной конечной точки"
+  "com_warning_resubmit_unsupported": "Повторная отправка сообщения ИИ не поддерживается для данной конечной точки",
+  "com_search_mode": "Поиск",
+  "com_search_mode_info": "Использует модель с возможностью поиска в интернете для получения актуальной информации",
+  "com_thinking_mode": "Размышления",
+  "com_thinking_mode_info": "Переключает на модель с улучшенными аналитическими способностями для решения сложных задач"
 }

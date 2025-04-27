@@ -1,3 +1,8 @@
+import { useCallback, useMemo, memo } from 'react';
+import type { TInterfaceConfig } from 'librechat-data-provider';
+import type { ImperativePanelHandle } from 'react-resizable-panels';
+
+/*
 import { useState, useCallback, useMemo, memo } from 'react';
 import { useUserKeyQuery } from 'librechat-data-provider/react-query';
 import type { TEndpointsConfig, TInterfaceConfig } from 'librechat-data-provider';
@@ -13,6 +18,7 @@ import { useChatContext } from '~/Providers';
 import Nav from './Nav';
 
 const defaultMinSize = 20;
+*/
 
 const SidePanel = ({
   defaultSize,
@@ -43,6 +49,10 @@ const SidePanel = ({
   panelRef: React.RefObject<ImperativePanelHandle>;
   interfaceConfig: TInterfaceConfig;
 }) => {
+  // Возвращаем пустой фрагмент вместо реального сайдбара
+  return <></>;
+  
+  /*
   const localize = useLocalize();
   const [isHovering, setIsHovering] = useState(false);
   const [newUser, setNewUser] = useLocalStorage('newUser', true);
@@ -176,6 +186,7 @@ const SidePanel = ({
       </ResizablePanel>
     </>
   );
+  */
 };
 
 export default memo(SidePanel);

@@ -20,6 +20,11 @@ export default function NavToggle({
   translateX?: boolean;
 }) {
   const localize = useLocalize();
+  
+  if (side === 'right') {
+    return <></>;
+  }
+
   const transition = {
     transition: 'transform 0.3s ease, opacity 0.2s ease',
   };

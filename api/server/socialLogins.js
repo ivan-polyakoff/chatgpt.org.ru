@@ -10,6 +10,7 @@ const {
   discordLogin,
   facebookLogin,
   appleLogin,
+  yandexLogin,
 } = require('~/strategies');
 const { isEnabled } = require('~/server/utils');
 const keyvRedis = require('~/cache/keyvRedis');
@@ -36,6 +37,9 @@ const configureSocialLogins = (app) => {
   }
   if (process.env.APPLE_CLIENT_ID && process.env.APPLE_PRIVATE_KEY_PATH) {
     passport.use(appleLogin());
+  }
+  if (process.env.YANDEX_CLIENT_ID && process.env.YANDEX_CLIENT_SECRET) {
+    passport.use(yandexLogin());
   }
   if (
     process.env.OPENID_CLIENT_ID &&

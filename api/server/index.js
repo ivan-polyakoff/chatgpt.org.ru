@@ -88,6 +88,12 @@ const startServer = async () => {
   app.use(staticCache(app.locals.paths.dist));
   app.use(staticCache(app.locals.paths.fonts));
   app.use(staticCache(app.locals.paths.assets));
+  
+  // Добавляем статический путь для изображений DALL-E 3
+  const uploadsDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+  app.use('/uploads', express.static(uploadsDir));
+  logger.info(`Static route for uploads configured at: ${uploadsDir}`);
+  
   app.set('trust proxy', trusted_proxy);
   app.use(cors());
   app.use(cookieParser());

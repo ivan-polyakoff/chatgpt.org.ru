@@ -114,7 +114,8 @@ const SidePanelGroup = ({
             </ResizablePanel>
           </>
         )}
-        {!hideSidePanel && interfaceConfig.sidePanel === true && (
+        {/* Правый сайдбар скрыт
+        {!hideSidePanel && (
           <SidePanel
             panelRef={panelRef}
             minSize={minSize}
@@ -130,7 +131,9 @@ const SidePanelGroup = ({
             interfaceConfig={interfaceConfig}
           />
         )}
+        */}
       </ResizablePanelGroup>
+      {/* Кнопка для закрытия правого сайдбара - скрыта
       <button
         aria-label="Close right side panel"
         className={`nav-mask ${!isCollapsed ? 'active' : ''}`}
@@ -145,6 +148,7 @@ const SidePanelGroup = ({
           panelRef.current?.collapse();
         }}
       />
+      */}
     </>
   );
 };

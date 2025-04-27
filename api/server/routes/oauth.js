@@ -159,6 +159,29 @@ router.get(
 );
 
 /**
+ * Yandex Routes
+ */
+router.get(
+  '/yandex',
+  passport.authenticate('yandex', {
+    scope: ['login:info', 'login:email'],
+    session: false,
+  }),
+);
+
+router.get(
+  '/yandex/callback',
+  passport.authenticate('yandex', {
+    failureRedirect: `${domains.client}/oauth/error`,
+    failureMessage: true,
+    session: false,
+    scope: ['login:info', 'login:email'],
+  }),
+  setBalanceConfig,
+  oauthHandler,
+);
+
+/**
  * Apple Routes
  */
 router.get(

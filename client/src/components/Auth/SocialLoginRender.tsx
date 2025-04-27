@@ -1,4 +1,4 @@
-import { GoogleIcon, FacebookIcon, OpenIDIcon, GithubIcon, DiscordIcon, AppleIcon } from '~/components';
+import { GoogleIcon, FacebookIcon, OpenIDIcon, GithubIcon, DiscordIcon, AppleIcon, YandexIcon } from '~/components';
 
 import SocialButton from './SocialButton';
 
@@ -60,6 +60,17 @@ function SocialLoginRender({
         Icon={GoogleIcon}
         label={localize('com_auth_google_login')}
         id="google"
+      />
+    ),
+    yandex: startupConfig.yandexLoginEnabled && (
+      <SocialButton
+        key="yandex"
+        enabled={startupConfig.yandexLoginEnabled}
+        serverDomain={startupConfig.serverDomain}
+        oauthPath="yandex"
+        Icon={YandexIcon}
+        label={localize('com_auth_yandex_login')}
+        id="yandex"
       />
     ),
     apple: startupConfig.appleLoginEnabled && (

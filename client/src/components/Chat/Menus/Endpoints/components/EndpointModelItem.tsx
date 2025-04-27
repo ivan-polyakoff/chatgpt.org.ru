@@ -1,9 +1,11 @@
 import React from 'react';
-import { EarthIcon } from 'lucide-react';
+import { EarthIcon, Lock } from 'lucide-react';
 import { isAgentsEndpoint, isAssistantsEndpoint } from 'librechat-data-provider';
 import type { Endpoint } from '~/common';
 import { useModelSelectorContext } from '../ModelSelectorContext';
 import { CustomMenuItem as MenuItem } from '../CustomMenu';
+import { TooltipAnchor } from '~/components';
+import { useLocalize } from '~/hooks';
 
 interface EndpointModelItemProps {
   modelId: string | null;
@@ -12,10 +14,41 @@ interface EndpointModelItemProps {
 }
 
 export function EndpointModelItem({ modelId, endpoint, isSelected }: EndpointModelItemProps) {
-  const { handleSelectModel } = useModelSelectorContext();
+  const localize = useLocalize();
+  const { handleSelectModel, userSubscription, getFilteredModels } = useModelSelectorContext();
   let isGlobal = false;
   let modelName = modelId;
   const avatarUrl = endpoint?.modelIcons?.[modelId ?? ''] || null;
+
+  // Проверяем, доступна ли модель для текущей подписки
+  const isAvailableForSubscription = React.useMemo(() => {
+    if (!modelId || endpoint.value !== 'openAI') {
+      return true;
+    }
+    const allowedModels = getFilteredModels('openAI', [modelId]);
+    return allowedModels.length > 0;
+  }, [modelId, endpoint.value, getFilteredModels]);
+
+  // Получаем текущий план пользователя
+  const currentPlanKey = userSubscription?.subscription?.plan?.key?.toLowerCase() || 'free';
+  const planName = userSubscription?.subscription?.plan?.name || 'Бесплатный';
+  
+  // Определяем, какой план нужен для модели
+  const requiredPlan = React.useMemo(() => {
+    if (!modelId || endpoint.value !== 'openAI' || isAvailableForSubscription) {
+      return null;
+    }
+    // Определяем требуемый план на основе модели
+    // Это можно настроить в соответствии с вашей логикой
+    if (modelId.includes('o4')) {
+      return { key: 'pro', name: 'Pro' };
+    } else if (modelId.includes('o3') && !modelId.includes('mini')) {
+      return { key: 'standard', name: 'Standard' };
+    } else if (modelId.includes('gpt-4o') && !modelId.includes('mini')) {
+      return { key: 'mini', name: 'Mini' };
+    }
+    return { key: 'mini', name: 'Mini' };
+  }, [modelId, endpoint.value, isAvailableForSubscription]);
 
   // Use custom names if available
   if (endpoint && modelId && isAgentsEndpoint(endpoint.value) && endpoint.agentNames?.[modelId]) {
@@ -35,8 +68,8 @@ export function EndpointModelItem({ modelId, endpoint, isSelected }: EndpointMod
   return (
     <MenuItem
       key={modelId}
-      onClick={() => handleSelectModel(endpoint, modelId ?? '')}
-      className="flex h-8 w-full cursor-pointer items-center justify-start rounded-lg px-3 py-2 text-sm"
+      onClick={() => isAvailableForSubscription && handleSelectModel(endpoint, modelId ?? '')}
+      className={`flex h-8 w-full items-center justify-start rounded-lg px-3 py-2 text-sm ${isAvailableForSubscription ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
     >
       <div className="flex items-center gap-2">
         {avatarUrl ? (
@@ -52,6 +85,16 @@ export function EndpointModelItem({ modelId, endpoint, isSelected }: EndpointMod
         <span>{modelName}</span>
       </div>
       {isGlobal && <EarthIcon className="ml-auto size-4 text-green-400" />}
+      {!isAvailableForSubscription && requiredPlan && (
+        <TooltipAnchor
+          description={`Для использования этой модели необходим тариф ${requiredPlan.name} или выше. Сейчас у вас тариф ${planName}.`}
+          render={
+            <div className="ml-auto flex items-center gap-1 text-amber-500 dark:text-amber-400">
+              <Lock className="size-4" />
+            </div>
+          }
+        />
+      )}
       {isSelected && (
         <svg
           width="16"

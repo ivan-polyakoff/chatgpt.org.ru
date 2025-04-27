@@ -31,14 +31,14 @@ async function getCurrentSubscription(req, res) {
       console.log('[SubscriptionController] Подписка не найдена, возвращаем бесплатный тариф');
       
       // Если нет активной подписки, считаем что это бесплатный тариф FREE
-      const allowedModels = getModelsForPlan('FREE');
+      const allowedModels = getModelsForPlan('free');
       console.log('[SubscriptionController] Модели для бесплатного тарифа:', allowedModels);
       
       return res.json({ 
         success: true, 
         subscription: {
           plan: {
-            key: 'FREE',
+            key: 'free',
             name: 'Бесплатный тариф',
             allowedModels: allowedModels,
           },
@@ -48,7 +48,13 @@ async function getCurrentSubscription(req, res) {
     }
     
     console.log('[SubscriptionController] Найдена активная подписка:', userSub.plan.key);
-    console.log('[SubscriptionController] Доступные модели:', userSub.plan.allowedModels);
+    
+    // Проверяем наличие allowedModels в плане
+    if (!userSub.plan.allowedModels) {
+      userSub.plan.allowedModels = [];
+    }
+    
+    console.log('[SubscriptionController] Доступные модели в БД:', userSub.plan.allowedModels);
     
     // Дополнительная обработка: если массив моделей пуст, 
     // используем модели из нашей конфигурации
@@ -66,6 +72,17 @@ async function getCurrentSubscription(req, res) {
         ...modifiedUserSub.plan,
         allowedModels: envModels 
       };
+      
+      // Обновляем модели в базе данных
+      try {
+        await SubscriptionPlan.findByIdAndUpdate(
+          userSub.plan._id,
+          { $set: { allowedModels: envModels } }
+        );
+        console.log('[SubscriptionController] Обновлены модели в БД для плана:', planKey);
+      } catch (dbErr) {
+        console.error('[SubscriptionController] Ошибка обновления моделей в БД:', dbErr);
+      }
       
       console.log('[SubscriptionController] Установлены модели из конфигурации:', envModels);
     }
@@ -142,6 +159,18 @@ async function confirmSubscription(req, res) {
     if (!plan) {
       return res.status(404).json({ success: false, message: 'Plan not found' });
     }
+    
+    // Обновляем модели в плане, если они отсутствуют
+    if (!plan.allowedModels || plan.allowedModels.length === 0) {
+      console.log('[SubscriptionController] Обновляем модели для плана', planKey);
+      const envModels = getModelsForPlan(planKey);
+      
+      plan.allowedModels = envModels;
+      await plan.save();
+      
+      console.log('[SubscriptionController] Модели для плана обновлены:', envModels);
+    }
+    
     // Рассчитываем даты подписки
     const now = new Date();
     const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);

@@ -245,8 +245,42 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
     }
   }, [open, token, showToast, currentPlanKey]);
 
+  // Обработчик для управления нажатием на план
+  const handlePlanClick = (plan: Plan, isSelectable: boolean) => {
+    // Для pro-тарифа ничего не делаем, так как будет использоваться кнопка
+    if (plan.key.toLowerCase() === 'pro') {
+      return;
+    }
+    
+    // Для остальных тарифов устанавливаем выбранный тариф если он доступен
+    if (isSelectable) {
+      setSelectedKey(plan.key);
+    }
+  };
+
+  // Обработчик для кнопки тарифа
+  const handlePlanButtonClick = (e: React.MouseEvent, plan: Plan, isSelectable: boolean, isCurrent: boolean) => {
+    e.stopPropagation(); // Предотвращаем повторное срабатывание родительского onClick
+    
+    // Для pro-тарифа открываем телеграм
+    if (plan.key.toLowerCase() === 'pro' && isSelectable && !isCurrent) {
+      window.open('https://t.me/covekss', '_blank');
+    } 
+    // Для остальных тарифов устанавливаем выбранный тариф если он доступен
+    else if (isSelectable && !isCurrent) {
+      setSelectedKey(plan.key);
+    }
+  };
+
   const handleBuy = async () => {
     if (!selectedKey) {
+      return;
+    }
+    
+    // Для тарифа pro не выполняем платежную логику, так как он оформляется через телеграм
+    if (selectedKey.toLowerCase() === 'pro') {
+      window.open('https://t.me/covekss', '_blank');
+      onOpenChange(false);
       return;
     }
     
@@ -315,7 +349,10 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
       </p>
       
       <button
-        onClick={() => onOpenChange(false)}
+        onClick={() => {
+          onOpenChange(false);
+          window.location.reload();
+        }}
         className="mt-8 inline-flex justify-center items-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
       >
         Начать использовать
@@ -387,7 +424,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                   return (
                     <div 
                       key={plan.key}
-                      onClick={() => isSelectable && setSelectedKey(plan.key)}
+                      onClick={() => handlePlanClick(plan, isSelectable)}
                       className={cn(
                         "relative flex flex-col rounded-xl border-2 p-6 transition-all",
                         isSelectable ? "cursor-pointer hover:shadow-lg" : "cursor-not-allowed opacity-70",
@@ -427,12 +464,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                       </div>
                       
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation(); // Предотвращаем повторное срабатывание родительского onClick
-                          if (isSelectable && !isCurrent) {
-                            window.open('https://t.me/covekss', '_blank');
-                          }
-                        }}
+                        onClick={(e) => handlePlanButtonClick(e, plan, isSelectable, isCurrent)}
                         disabled={!isSelectable || isCurrent}
                         className={cn(
                           "mt-6 w-full py-2 rounded-md text-center font-medium",
@@ -445,7 +477,10 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                                 : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                         )}
                       >
-                        {isCurrent ? 'Ваш тариф' : isLowerThanCurrent ? 'Недоступно' : isSelected ? 'Выбрано' : 'Выбрать'}
+                        {isCurrent ? 'Ваш тариф' : 
+                         isLowerThanCurrent ? 'Недоступно' : 
+                         isSelected ? 'Выбрано' : 
+                         plan.key.toLowerCase() === 'pro' ? 'Оформить в Telegram' : 'Выбрать'}
                       </button>
                     </div>
                   );
@@ -471,6 +506,8 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                     </>
                   ) : selectedKey.toLowerCase() === currentPlanKey.toLowerCase() ? (
                     <>Текущий тариф</>
+                  ) : selectedKey.toLowerCase() === 'pro' ? (
+                    <>Оформить в Telegram</>
                   ) : (
                     <>
                       <Gift className="h-5 w-5 mr-2" />

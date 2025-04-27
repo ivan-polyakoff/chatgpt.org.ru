@@ -22,7 +22,8 @@ type ModelSelectorContextType = {
   assistantsMap: t.TAssistantsMap | undefined;
   endpointsConfig: t.TEndpointsConfig;
   // Subscription
-  allowedModels: string[];
+  userSubscription: any;
+  isLoadingSubscription: boolean;
 
   // Functions
   endpointRequiresUserKey: (endpoint: string) => boolean;
@@ -32,6 +33,7 @@ type ModelSelectorContextType = {
   handleSelectSpec: (spec: t.TModelSpec) => void;
   handleSelectEndpoint: (endpoint: Endpoint) => void;
   handleSelectModel: (endpoint: Endpoint, model: string) => void;
+  getFilteredModels: (endpoint: string, models: string[]) => string[];
 } & ReturnType<typeof useKeyDialog>;
 
 const ModelSelectorContext = createContext<ModelSelectorContextType | undefined>(undefined);
@@ -49,19 +51,93 @@ interface ModelSelectorProviderProps {
   startupConfig: t.TStartupConfig | undefined;
 }
 
+// Функция для получения моделей в зависимости от подписки
+function getModelsBySubscription(planKey: string, config: any): string[] {
+  if (!config || !config.openAI) {
+    return [];
+  }
+
+  const lowerPlanKey = planKey.toLowerCase();
+  let modelsEnvVar = '';
+
+  switch (lowerPlanKey) {
+    case 'free':
+      modelsEnvVar = config.openAI.modelsEnvFree || '';
+      break;
+    case 'mini':
+      modelsEnvVar = config.openAI.modelsEnvMini || '';
+      break;
+    case 'standard':
+      modelsEnvVar = config.openAI.modelsEnvStandard || '';
+      break;
+    case 'pro':
+      modelsEnvVar = config.openAI.modelsEnvPro || '';
+      break;
+    default:
+      modelsEnvVar = config.openAI.modelsEnvFree || '';
+  }
+
+  return modelsEnvVar.split(',').map(model => model.trim()).filter(Boolean);
+}
+
 export function ModelSelectorProvider({ children, startupConfig }: ModelSelectorProviderProps) {
   const agentsMap = useAgentsMapContext();
   const assistantsMap = useAssistantsMapContext();
   const { data: endpointsConfig } = useGetEndpointsQuery();
-  const { data: userSubscription } = useGetUserSubscriptionQuery();
   const { conversation, newConversation } = useChatContext();
-  const modelSpecs = useMemo(() => startupConfig?.modelSpecs?.list ?? [], [startupConfig]);
+
+  // Получаем информацию о подписке пользователя
+  const { data: userSubscriptionData, isLoading: isLoadingSubscription } = useGetUserSubscriptionQuery();
+
+  // Получаем текущий план пользователя и доступные модели
+  const currentPlanKey = userSubscriptionData?.subscription?.plan?.key?.toLowerCase() || 'free';
+  const allowedModelsFromSubscription = userSubscriptionData?.subscription?.plan?.allowedModels || [];
+
+  // Получаем все модели из стартовой конфигурации
+  const allModelSpecs = useMemo(() => startupConfig?.modelSpecs?.list ?? [], [startupConfig]);
+  
+  // Определяем список разрешенных моделей
+  const allowedModels = useMemo(() => {
+    // Если есть модели из подписки, используем их
+    if (allowedModelsFromSubscription && allowedModelsFromSubscription.length > 0) {
+      console.log('Используем модели из подписки:', allowedModelsFromSubscription);
+      return allowedModelsFromSubscription;
+    }
+    
+    // Иначе берём из конфигурации
+    const modelsFromConfig = getModelsBySubscription(currentPlanKey, endpointsConfig);
+    console.log('Используем модели из конфигурации:', modelsFromConfig);
+    return modelsFromConfig;
+  }, [allowedModelsFromSubscription, currentPlanKey, endpointsConfig]);
+
+  // Фильтруем модели в зависимости от подписки пользователя
+  const modelSpecs = useMemo(() => {
+    if (!allowedModels || allowedModels.length === 0) {
+      return allModelSpecs;
+    }
+    
+    return allModelSpecs.filter(spec => {
+      // Если это не OpenAI, то разрешаем все модели
+      if (spec.preset.endpoint !== 'openAI') {
+        return true;
+      }
+      
+      // Проверяем доступность модели по подписке для OpenAI
+      if (spec.preset.model) {
+        return allowedModels.includes(spec.preset.model);
+      }
+      
+      return true;
+    });
+  }, [allModelSpecs, allowedModels]);
+  
   const { mappedEndpoints, endpointRequiresUserKey } = useEndpoints({
     agentsMap,
     assistantsMap,
     startupConfig,
     endpointsConfig,
   });
+  
   const { onSelectEndpoint, onSelectSpec } = useSelectMention({
     // presets,
     modelSpecs,
@@ -71,82 +147,13 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     returnHandlers: true,
   });
 
-  // Получаем список разрешенных моделей из подписки пользователя
-  const allowedModels = useMemo(() => {
-    if (!userSubscription || !userSubscription.subscription) {
-      console.log('[ModelSelectorContext] No subscription data found, using default models');
-      return [];
-    }
-    
-    // Для авторизованных пользователей возвращаем модели из их тарифного плана
-    const planModels = userSubscription.subscription.plan.allowedModels || [];
-    console.log('[ModelSelectorContext] Subscription data found:', userSubscription.subscription.plan.key);
-    console.log('[ModelSelectorContext] Allowed models:', planModels);
-    
-    return planModels;
-  }, [userSubscription]);
-
-  // Проверяем содержание моделей в allowedModels для отладки
-  useEffect(() => {
-    console.log('[ModelSelectorContext] Current allowed models:', allowedModels);
-  }, [allowedModels]);
-
-  // Фильтруем доступные эндпоинты на основе разрешенных моделей
-  const filteredEndpoints = useMemo(() => {
-    console.log('[ModelSelectorContext] Allowed models for filtering:', allowedModels);
-    console.log('[ModelSelectorContext] Available endpoints:', mappedEndpoints);
-    
-    // Если нет списка разрешенных моделей или он пуст,
-    // показываем все модели без фильтрации
-    if (!mappedEndpoints || !allowedModels || allowedModels.length === 0) {
-      console.log('[ModelSelectorContext] Showing all models - no filter applied');
-      return mappedEndpoints;
-    }
-
-    // Применяем фильтрацию к моделям
-    const filtered = mappedEndpoints.map(endpoint => {
-      if (!endpoint.models || !endpoint.models.length) {
-        return endpoint;
-      }
-
-      console.log(`[ModelSelectorContext] Filtering models for endpoint: ${endpoint.label || endpoint.value}`);
-      
-      // Фильтруем модели для этого эндпоинта
-      const filteredModels = endpoint.models.filter((model) => {
-        if (model && typeof model === 'object') {
-          // Поддерживаем объекты с полем value или name
-          let modelValue = '';
-          if ('value' in model) {
-            modelValue = String(model.value);
-          } else if ('name' in model) {
-            modelValue = String((model as any).name);
-          }
-          // Проверяем, есть ли модель в списке разрешенных
-          const isAllowed = modelValue && allowedModels.includes(modelValue);
-          console.log(`[ModelSelectorContext] Model ${modelValue} allowed:`, isAllowed);
-          return isAllowed;
-        }
-        return false;
-      });
-
-      console.log(`[ModelSelectorContext] Filtered models for endpoint ${endpoint.label || endpoint.value}:`, filteredModels);
-      
-      return {
-        ...endpoint,
-        models: filteredModels,
-      };
-    });
-    
-    console.log('[ModelSelectorContext] Final filtered endpoints:', filtered);
-    return filtered;
-  }, [mappedEndpoints, allowedModels]);
-
   // State
   const [selectedValues, setSelectedValues] = useState<SelectedValues>({
     endpoint: conversation?.endpoint || '',
     model: conversation?.model || '',
     modelSpec: conversation?.spec || '',
   });
+  
   useSelectorEffects({
     agentsMap,
     conversation,
@@ -158,15 +165,28 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
   const [endpointSearchValues, setEndpointSearchValues] = useState<Record<string, string>>({});
 
   const keyProps = useKeyDialog();
+  
+  // Функция для фильтрации моделей по эндпоинту и подписке
+  const getFilteredModels = (endpoint: string, models: string[]): string[] => {
+    if (endpoint !== 'openAI') {
+      return models;
+    }
+    
+    if (!allowedModels || allowedModels.length === 0) {
+      return models;
+    }
+    
+    return models.filter(model => allowedModels.includes(model));
+  };
 
-  // Memoized search results
+  // Мемоизированные результаты поиска
   const searchResults = useMemo(() => {
     if (!searchValue) {
       return null;
     }
-    const allItems = [...modelSpecs, ...filteredEndpoints];
+    const allItems = [...modelSpecs, ...mappedEndpoints];
     return filterItems(allItems, searchValue, agentsMap, assistantsMap || {});
-  }, [searchValue, modelSpecs, filteredEndpoints, agentsMap, assistantsMap]);
+  }, [searchValue, modelSpecs, mappedEndpoints, agentsMap, assistantsMap]);
 
   // Functions
   const setDebouncedSearchValue = useMemo(
@@ -176,6 +196,7 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
       }, 200),
     [],
   );
+  
   const setEndpointSearchValue = (endpoint: string, value: string) => {
     setEndpointSearchValues((prev) => ({
       ...prev,
@@ -242,10 +263,11 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     agentsMap,
     modelSpecs,
     assistantsMap,
-    mappedEndpoints: filteredEndpoints, // Используем отфильтрованные эндпоинты
+    mappedEndpoints,
     endpointsConfig,
     // Subscription
-    allowedModels,
+    userSubscription: userSubscriptionData,
+    isLoadingSubscription,
 
     // Functions
     handleSelectSpec,
@@ -254,6 +276,7 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     handleSelectEndpoint,
     setEndpointSearchValue,
     endpointRequiresUserKey,
+    getFilteredModels,
     setSearchValue: setDebouncedSearchValue,
     // Dialog
     ...keyProps,
