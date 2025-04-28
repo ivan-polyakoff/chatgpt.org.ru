@@ -18,7 +18,16 @@ import AttachFile from './AttachFile';
 function AttachFileChat({ disableInputs }: { disableInputs: boolean }) {
   const { conversation } = useChatContext();
 
-  const { endpoint: _endpoint, endpointType } = conversation ?? { endpoint: null };
+  const { endpoint: _endpoint, endpointType, model } = conversation ?? { endpoint: null };
+
+  // Проверка на модель DALL-E 3
+  const isDallE3 = useMemo(() => {
+    if (!model) {
+      return false;
+    }
+    const modelLower = model.toLowerCase();
+    return modelLower === 'dall-e-3' || modelLower.includes('dall-e-3');
+  }, [model]);
 
   const key = conversation?.conversationId ?? Constants.NEW_CONVO;
   const ephemeralAgent = useRecoilValue(ephemeralAgentByConvoId(key));
@@ -36,11 +45,17 @@ function AttachFileChat({ disableInputs }: { disableInputs: boolean }) {
     | undefined;
 
   const endpointSupportsFiles: boolean = supportsFiles[endpointType ?? _endpoint ?? ''] ?? false;
-  const isUploadDisabled = (disableInputs || endpointFileConfig?.disabled) ?? false;
+  const isUploadDisabled = (disableInputs || endpointFileConfig?.disabled || isDallE3) ?? false;
+
+  if (isDallE3) {
+    // Для DALL-E 3 не отображаем кнопку загрузки файлов
+    return null;
+  }
 
   if (isAgents) {
     return <AttachFileMenu disabled={disableInputs} />;
   }
+
   if (endpointSupportsFiles && !isUploadDisabled) {
     return <AttachFile disabled={disableInputs} />;
   }

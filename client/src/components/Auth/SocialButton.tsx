@@ -5,6 +5,9 @@ const SocialButton = ({ id, enabled, serverDomain, oauthPath, Icon, label }) => 
     return null;
   }
 
+  // Увеличенный размер для иконки Яндекса
+  const isYandex = id === 'yandex';
+
   return (
     <div className="mt-2 flex gap-x-2">
       <a
@@ -13,7 +16,9 @@ const SocialButton = ({ id, enabled, serverDomain, oauthPath, Icon, label }) => 
         href={`${serverDomain}/oauth/${oauthPath}`}
         data-testid={id}
       >
-        <Icon />
+        <div className={isYandex ? 'w-6 h-6' : ''}>
+          <Icon />
+        </div>
         <p>{label}</p>
       </a>
     </div>
