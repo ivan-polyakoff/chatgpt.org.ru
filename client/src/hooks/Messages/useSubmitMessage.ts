@@ -65,6 +65,7 @@ export default function useSubmitMessage() {
           { overrideMessages: rootMessages },
         );
       }
+      methods.setValue('text', '');
       methods.reset();
     },
     [

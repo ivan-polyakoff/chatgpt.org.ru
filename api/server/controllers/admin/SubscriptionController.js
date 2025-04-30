@@ -1,52 +1,68 @@
-const SubscriptionPlan = require('~/models/SubscriptionPlan');
-const UserSubscription = require('~/models/UserSubscription');
 const User = require('~/models/User');
+const UserSubscription = require('~/models/UserSubscription');
+const SubscriptionPlan = require('~/models/SubscriptionPlan');
 const { sendEmail, checkEmailConfig } = require('~/server/utils');
 const { logger } = require('~/config');
 
 /**
- * Assigns a subscription plan to a user by email via admin panel.
- * POST /api/admin/assign-subscription
- * Body: { email: string, planKey: string }
+ * Назначить подписку пользователю по email
  */
 async function assignSubscription(req, res) {
-  try {
-    const { email, planKey } = req.body;
-    if (!email || !planKey) {
-      return res.status(400).json({ message: 'Email and planKey are required' });
-    }
+  const { email, planKey, durationDays } = req.body;
 
+  if (!email || !planKey) {
+    return res.status(400).json({
+      success: false,
+      message: 'Не указаны обязательные параметры: email и planKey'
+    });
+  }
+
+  try {
+    // Находим пользователя по email
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Пользователь не найден'
+      });
     }
 
+    // Находим план подписки
     const plan = await SubscriptionPlan.findOne({ key: planKey });
     if (!plan) {
-      return res.status(404).json({ message: 'Plan not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'План подписки не найден'
+      });
     }
 
+    // Рассчитываем дату окончания подписки
     const now = new Date();
-    const endDate = plan.durationDays > 0
-      ? new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000)
-      : new Date('9999-12-31');
+    const endDate = new Date(now.getTime() + (durationDays || plan.durationDays) * 24 * 60 * 60 * 1000);
 
+    // Находим текущую подписку пользователя или создаем новую
     let subscription = await UserSubscription.findOne({ user: user._id });
+    
     if (subscription) {
+      // Обновляем существующую подписку
       subscription.plan = plan._id;
       subscription.startDate = now;
       subscription.endDate = endDate;
       subscription.remainingMessages = plan.messageLimit;
-      await subscription.save();
+      subscription.status = 'active';
     } else {
-      subscription = await UserSubscription.create({
+      // Создаем новую подписку
+      subscription = new UserSubscription({
         user: user._id,
         plan: plan._id,
         startDate: now,
         endDate,
         remainingMessages: plan.messageLimit,
+        status: 'active'
       });
     }
+
+    await subscription.save();
 
     if (checkEmailConfig()) {
       await sendEmail({
@@ -63,11 +79,23 @@ async function assignSubscription(req, res) {
       });
     }
 
-    return res.json({ message: 'Subscription assigned', subscription });
-  } catch (err) {
-    logger.error('[assignSubscription] Error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    return res.json({
+      success: true,
+      message: `Подписка "${plan.name}" успешно назначена пользователю ${email}`,
+      subscription: {
+        ...subscription.toObject(),
+        plan: plan.toObject()
+      }
+    });
+  } catch (error) {
+    console.error('Error assigning subscription:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Произошла ошибка при назначении подписки'
+    });
   }
 }
 
-module.exports = { assignSubscription }; 
+module.exports = {
+  assignSubscription
+}; 

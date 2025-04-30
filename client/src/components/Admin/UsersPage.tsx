@@ -18,18 +18,22 @@ export default function UsersPage() {
     return res.json();
   });
 
-  const mutateBan = useMutation<any, any, { id: string; ban: boolean }>(
-    async ({ id, ban }) => {
-      const res = await fetch(`/api/admin/users/${id}/${ban ? 'ban' : 'unban'}`, {
-        method: 'POST',
+  // Получение данных о подписках пользователей
+  const { data: subscriptionsData, isLoading: subscriptionsLoading } = useQuery<any, any>(
+    ['admin-subscriptions'],
+    async () => {
+      const res = await fetch('/api/admin/subscriptions', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        throw new Error('Error updating ban status');
+        throw new Error('Error fetching subscriptions');
       }
       return res.json();
     },
-    { onSuccess: () => queryClient.invalidateQueries(['admin-users']) }
+    {
+      // Отключаем запрос, если есть ошибка получения пользователей
+      enabled: !error
+    }
   );
 
   if (isLoading) {
@@ -56,6 +60,15 @@ export default function UsersPage() {
       </div>
     );
   }
+
+  // Функция для получения информации о подписке пользователя
+  const getUserSubscription = (userId) => {
+    if (!subscriptionsData || !subscriptionsData.subscriptions) return null;
+    
+    return subscriptionsData.subscriptions.find(
+      sub => sub.user === userId || sub.user?._id === userId
+    );
+  };
 
   const filteredUsers = data.users.filter((user: any) => 
     user.email.toLowerCase().includes(search.toLowerCase())
@@ -100,18 +113,20 @@ export default function UsersPage() {
                       Роль
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Подписка
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Зарегистрирован
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Статус
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Действия
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((u: any) => (
+                  {filteredUsers.map((u: any) => {
+                    const subscription = getUserSubscription(u.id);
+                    return (
                     <tr key={u.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{u.email}</div>
@@ -120,6 +135,24 @@ export default function UsersPage() {
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                           {u.role}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {subscriptionsLoading ? (
+                          <span className="text-xs text-gray-500">Загрузка...</span>
+                        ) : subscription ? (
+                          <div>
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {subscription.plan?.name || 'Нет данных'}
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              До: {new Date(subscription.endDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            Бесплатный
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(u.createdAt).toLocaleDateString()}
@@ -135,21 +168,8 @@ export default function UsersPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => mutateBan.mutate({ id: u.id, ban: !u.banned })}
-                          className={`px-3 py-1.5 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                            u.banned
-                              ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white'
-                              : 'bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white'
-                          }`}
-                          disabled={mutateBan.isLoading}
-                        >
-                          {mutateBan.isLoading ? 'Обработка...' : u.banned ? 'Разблокировать' : 'Заблокировать'}
-                        </button>
-                      </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

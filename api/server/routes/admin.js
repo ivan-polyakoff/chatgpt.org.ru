@@ -15,6 +15,7 @@ const { listPromoCodes, createPromoCode, updatePromoCode } = require('~/server/c
 const { getSettings, updateSettings } = require('~/server/controllers/admin/SettingsController');
 const { assignSubscription } = require('~/server/controllers/admin/SubscriptionController');
 const { getModels, updateModels } = require('~/server/controllers/admin/ModelsController');
+const UserSubscription = require('~/models/UserSubscription');
 
 const router = express.Router();
 
@@ -27,6 +28,21 @@ router.get('/users', listUsers);
 router.get('/users/:id', getUser);
 // Разбан пользователя
 router.post('/users/:id/unban', unbanUser);
+
+// Получение всех подписок для админки
+router.get('/subscriptions', async (req, res) => {
+  try {
+    const subscriptions = await UserSubscription.find()
+      .populate('user')
+      .populate('plan')
+      .lean();
+    
+    res.json({ success: true, subscriptions });
+  } catch (err) {
+    console.error('Error fetching subscriptions:', err);
+    res.status(500).json({ success: false, message: 'Ошибка получения подписок' });
+  }
+});
 
 // Транзакции и баланс
 router.get('/transactions', listTransactions);
