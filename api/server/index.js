@@ -149,6 +149,7 @@ const startServer = async () => {
   app.use('/api/roles', routes.roles);
   app.use('/api/agents', routes.agents);
   app.use('/api/banner', routes.banner);
+  app.use('/api/notifications', routes.notifications);
   app.use('/api/bedrock', routes.bedrock);
   app.use('/api/tags', routes.tags);
   app.use('/api/transactions', routes.transactions);

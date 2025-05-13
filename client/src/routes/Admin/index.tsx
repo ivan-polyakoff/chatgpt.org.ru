@@ -9,7 +9,8 @@ import PromocodesPage from '~/components/Admin/PromocodesPage';
 import SettingsPage from '~/components/Admin/SettingsPage';
 import SubscriptionsPage from '~/components/Admin/SubscriptionsPage';
 import ModelsPage from '~/components/Admin/ModelsPage';
-import { Moon, Sun, User, DollarSign, BarChart3, Tag, KeyRound, Gift, Code } from 'lucide-react';
+import NotificationsPage from '~/components/Admin/NotificationsPage';
+import { Moon, Sun, User, DollarSign, BarChart3, Tag, KeyRound, Gift, Code, Bell } from 'lucide-react';
 
 function AdminLayout() {
   const { user, isAuthenticated } = useAuthRedirect();
@@ -103,6 +104,19 @@ function AdminLayout() {
             Промокоды
           </NavLink>
           <NavLink 
+            to="notifications" 
+            className={({ isActive }) => 
+              `flex items-center px-4 py-3 rounded-lg transition-all ${
+                isActive 
+                  ? 'bg-white text-blue-700 dark:bg-indigo-950 dark:text-white font-medium shadow-md' 
+                  : 'text-blue-100 hover:bg-blue-700 dark:hover:bg-indigo-800'
+              }`
+            }
+          >
+            <Bell className="h-5 w-5 mr-3" />
+            Оповещения
+          </NavLink>
+          <NavLink 
             to="settings" 
             className={({ isActive }) => 
               `flex items-center px-4 py-3 rounded-lg transition-all ${
@@ -177,6 +191,7 @@ const adminRoutes = {
     { path: 'transactions', element: <TransactionsPage /> },
     { path: 'stats', element: <StatsPage /> },
     { path: 'promocodes', element: <PromocodesPage /> },
+    { path: 'notifications', element: <NotificationsPage /> },
     { path: 'settings', element: <SettingsPage /> },
     { path: 'subscriptions', element: <SubscriptionsPage /> },
     { path: 'models', element: <ModelsPage /> },

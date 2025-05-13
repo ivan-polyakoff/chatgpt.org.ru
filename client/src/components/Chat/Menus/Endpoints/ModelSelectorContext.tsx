@@ -179,14 +179,30 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     return models.filter(model => allowedModels.includes(model));
   };
 
-  // Мемоизированные результаты поиска
+  // Фильтруем эндпоинты и их модели в зависимости от подписки для поиска
+  const filteredEndpointsBySubscription = useMemo(() => {
+    if (!mappedEndpoints) {
+      return [];
+    }
+    return mappedEndpoints.map(endpoint => {
+      if (!endpoint.hasModels || endpoint.value !== 'openAI') {
+        return endpoint;
+      }
+      const modelNames = endpoint.models?.map(m => m.name) || [];
+      const allowedNames = getFilteredModels(endpoint.value, modelNames);
+      const filteredModels = endpoint.models?.filter(m => allowedNames.includes(m.name)) || [];
+      return { ...endpoint, models: filteredModels };
+    });
+  }, [mappedEndpoints, getFilteredModels]);
+
+  // Мемоизированные результаты поиска по подписанным моделям и эндпоинтам
   const searchResults = useMemo(() => {
     if (!searchValue) {
       return null;
     }
-    const allItems = [...modelSpecs, ...mappedEndpoints];
+    const allItems = [...modelSpecs, ...filteredEndpointsBySubscription];
     return filterItems(allItems, searchValue, agentsMap, assistantsMap || {});
-  }, [searchValue, modelSpecs, mappedEndpoints, agentsMap, assistantsMap]);
+  }, [searchValue, modelSpecs, filteredEndpointsBySubscription, agentsMap, assistantsMap]);
 
   // Functions
   const setDebouncedSearchValue = useMemo(

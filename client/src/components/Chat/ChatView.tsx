@@ -11,6 +11,7 @@ import ConversationStarters from './Input/ConversationStarters';
 import MessagesView from './Messages/MessagesView';
 import { Spinner } from '~/components/svg';
 import Presentation from './Presentation';
+import NotificationPopup from './NotificationPopup';
 import ChatForm from './Input/ChatForm';
 import { buildTree } from '~/utils';
 import Landing from './Landing';
@@ -69,6 +70,7 @@ function ChatView({ index = 0 }: { index?: number }) {
       <ChatContext.Provider value={chatHelpers}>
         <AddedChatContext.Provider value={addedChatHelpers}>
           <Presentation>
+            <NotificationPopup />
             <div className="flex h-full w-full flex-col">
               {!isLoading && <Header />}
 
