@@ -5,14 +5,22 @@ const { logger } = require('~/config');
  * Получить текущее активное оповещение
  */
 async function getNotification(req, res) {
-  logger.info('Admin getNotification called');
+  logger.info(`getNotification called by user: ${req.user?._id || 'anonymous'}`);
   try {
     const filter = req.user ? { readBy: { $nin: [req.user._id] } } : {};
+    logger.info(`getNotification filter: ${JSON.stringify(filter)}`);
+    
     const notification = await Notification.findOne(filter).sort({ createdAt: -1 }).lean();
-    logger.info(`Admin getNotification success: ${notification?._id}`);
+    
+    if (notification) {
+      logger.info(`getNotification found notification ${notification._id} with readBy: ${JSON.stringify(notification.readBy)}`);
+    } else {
+      logger.info('getNotification: no unread notifications found');
+    }
+    
     res.status(200).json({ notification });
   } catch (error) {
-    logger.error('Admin getNotification error:', error);
+    logger.error('getNotification error:', error);
     res.status(500).json({ message: 'Error getting notification', error: error.message });
   }
 }
@@ -56,10 +64,26 @@ async function markReadNotification(req, res) {
   logger.info(`User ${req.user._id} markReadNotification called for id: ${req.body.id}`);
   try {
     const { id } = req.body;
-    await Notification.updateOne(
+    
+    // Проверяем, существует ли уведомление
+    const notification = await Notification.findById(id);
+    if (!notification) {
+      logger.error(`Notification ${id} not found`);
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+    
+    // Проверяем, не было ли уже прочитано
+    if (notification.readBy.includes(req.user._id)) {
+      logger.info(`Notification ${id} already read by user ${req.user._id}`);
+      return res.status(200).json({ message: 'Already marked as read' });
+    }
+    
+    const result = await Notification.updateOne(
       { _id: id },
-      { $addToSet: { readBy: req.user._id } }
+      { $addToSet: { readBy: req.user._id } },
     );
+    
+    logger.info(`markReadNotification result: ${JSON.stringify(result)}`);
     res.status(200).json({});
   } catch (error) {
     logger.error('markReadNotification error:', error);
@@ -67,4 +91,4 @@ async function markReadNotification(req, res) {
   }
 }
 
-module.exports = { getNotification, setNotification, deleteNotification, markReadNotification, }; 
+module.exports = { getNotification, setNotification, deleteNotification, markReadNotification }; 

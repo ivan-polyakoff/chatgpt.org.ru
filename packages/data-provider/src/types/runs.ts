@@ -7,6 +7,7 @@ export enum ContentTypes {
   IMAGE_URL = 'image_url',
   AGENT_UPDATE = 'agent_update',
   ERROR = 'error',
+  SYSTEM_MESSAGE_LIMIT = 'system_message_limit',
 }
 
 export enum StepTypes {

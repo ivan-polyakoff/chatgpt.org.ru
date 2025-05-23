@@ -87,7 +87,8 @@ export default function NotificationPopup() {
 
   const handleClose = async () => {
     try {
-      await fetch('/api/notifications/read', {
+      console.log('Marking notification as read:', _id);
+      const response = await fetch('/api/notifications/read', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,11 +96,18 @@ export default function NotificationPopup() {
         },
         body: JSON.stringify({ id: _id }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      console.log('Notification marked as read successfully');
     } catch (e) {
       console.error('markReadNotification error:', e);
     } finally {
       setIsVisible(false);
       setTimeout(() => {
+        console.log('Invalidating notification queries');
         queryClient.invalidateQueries(['notification']);
       }, 300); // Задержка для завершения анимации исчезновения
     }

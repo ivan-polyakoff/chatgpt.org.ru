@@ -463,6 +463,16 @@ export type TMessageContentParts =
         PartMetadata;
     }
   | { type: ContentTypes.IMAGE_FILE; image_file: ImageFile & PartMetadata }
+  | { 
+      type: ContentTypes.SYSTEM_MESSAGE_LIMIT; 
+      system_message_limit: {
+        message: string;
+        limit: number;
+        used: number;
+        resetIn: number;
+        planKey: string;
+      }
+    }
   | Agents.AgentUpdate
   | Agents.MessageContentImageUrl;
 

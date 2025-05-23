@@ -73,7 +73,6 @@ export const useGetNotificationQuery = (
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: true,
-    refetchInterval: 5000,
     ...config,
     enabled: (config?.enabled ?? true) === true && queriesEnabled,
   });

@@ -37,10 +37,7 @@ export default function Footer({ className }: { className?: string }) {
   const mainContentParts = (
     typeof config?.customFooter === 'string'
       ? config.customFooter
-      : '[ChatGPTOrgRU ' +
-        Constants.VERSION +
-        '](chatgpt.org.ru) - ' +
-        localize('com_ui_latest_footer')
+      : 'По техническим вопросам пишите нам в телеграм - [@envato_ru](https://t.me/envato_ru)'
   ).split('|');
 
   useEffect(() => {

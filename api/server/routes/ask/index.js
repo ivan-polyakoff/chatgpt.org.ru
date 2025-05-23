@@ -9,6 +9,7 @@ const {
   messageUserLimiter,
   validateConvoAccess,
 } = require('~/server/middleware');
+const checkMessageLimit = require('~/server/middleware/checkMessageLimit');
 const { isEnabled } = require('~/server/utils');
 const gptPlugins = require('./gptPlugins');
 const anthropic = require('./anthropic');
@@ -35,6 +36,9 @@ if (isEnabled(LIMIT_MESSAGE_IP)) {
 if (isEnabled(LIMIT_MESSAGE_USER)) {
   router.use(messageUserLimiter);
 }
+
+// Проверка лимитов сообщений по тарифам
+router.use(checkMessageLimit);
 
 router.use(validateConvoAccess);
 

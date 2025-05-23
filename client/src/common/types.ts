@@ -546,6 +546,12 @@ export type TBaseResData = {
 export type TResData = TBaseResData & {
   requestMessage: t.TMessage;
   responseMessage: t.TMessage;
+  error?: string;
+  message?: string;
+  limit?: number;
+  used?: number;
+  resetIn?: number;
+  planKey?: string;
 };
 
 export type TFinalResData = Omit<TBaseResData, 'conversation'> & {

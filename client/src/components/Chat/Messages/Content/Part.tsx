@@ -19,6 +19,7 @@ import ToolCall from './ToolCall';
 import ImageGen from './ImageGen';
 import Text from './Parts/Text';
 import Image from './Image';
+import SystemMessageLimit from './Parts/SystemMessageLimit';
 
 type PartProps = {
   part?: TMessageContentParts;
@@ -59,6 +60,8 @@ const Part = memo(
           )}
         </>
       );
+    } else if (part.type === 'system_message_limit') {
+      return <SystemMessageLimit systemMessageLimit={(part as any).system_message_limit} />;
     } else if (part.type === ContentTypes.TEXT) {
       const text = typeof part.text === 'string' ? part.text : part.text.value;
 

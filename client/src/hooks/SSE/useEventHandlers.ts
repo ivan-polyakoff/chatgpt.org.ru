@@ -539,6 +539,36 @@ export default function useEventHandlers({
         return tMessageSchema.parse(errorMessage);
       };
 
+      // Специальная обработка ошибки лимита сообщений
+      if (data?.error === 'MESSAGE_LIMIT_EXCEEDED') {
+        const systemMessage: TMessage = {
+          messageId: v4(),
+          conversationId: conversationId || v4(),
+          parentMessageId: userMessage.messageId,
+          sender: 'Система',
+          text: '',
+          isCreatedByUser: false,
+          error: false,
+          unfinished: false,
+          content: [
+            {
+              type: 'system_message_limit',
+              system_message_limit: {
+                message: data.message || 'Лимит сообщений исчерпан',
+                limit: data.limit || 0,
+                used: data.used || 0,
+                resetIn: data.resetIn || 0,
+                planKey: data.planKey || 'free',
+              },
+            },
+          ],
+        };
+
+        setMessages([...messages, userMessage, systemMessage]);
+        setIsSubmitting(false);
+        return;
+      }
+
       if (!data) {
         const convoId = conversationId || v4();
         const errorMetadata = parseErrorResponse({

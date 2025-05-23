@@ -148,6 +148,7 @@
   "dependencies": {
     "chart.js": "^4.4.9",
     "passport-yandex": "^0.0.5",
+    "pkce-challenge": "^5.0.0",
     "react-chartjs-2": "^5.3.0"
   }
 }
