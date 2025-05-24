@@ -1648,7 +1648,7 @@ ${convo}
   // Проверяем, является ли модель DALL-E 3
   isDallE3Model() {
     const model = this.modelOptions.model.toLowerCase();
-    return model === 'dall-e-3' || model.includes('dall-e-3');
+    return model === 'gpt-image-1' || model.includes('gpt-image-1');
   }
   
   // Метод для сохранения изображения из URL
@@ -1729,7 +1729,7 @@ ${convo}
       
       // Настройки генерации изображения
       const imageParams = {
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: prompt,
         n: 1, // Количество изображений
         size: "16:9", // Размер изображения
@@ -1766,7 +1766,7 @@ ${convo}
       
       // Возвращаем результат в специальном формате для клиента
       return {
-        type: 'dall-e-3',
+        type: 'gpt-image-1',
         imageUrl: savedImage.filePath,
         imageId: savedImage.imageId,
         prompt: prompt,

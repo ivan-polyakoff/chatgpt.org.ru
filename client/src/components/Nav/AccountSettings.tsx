@@ -6,6 +6,7 @@ import { LinkIcon, GearIcon, DropdownMenuSeparator } from '~/components';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import FilesView from '~/components/Chat/Input/Files/FilesView';
 import SubscriptionModal from './SubscriptionModal';
+import ClearCacheButton from './ClearCacheButton';
 import { useAuthContext } from '~/hooks/AuthContext';
 import useAvatar from '~/hooks/Messages/useAvatar';
 import { UserIcon } from '~/components/svg';
@@ -66,6 +67,9 @@ function AccountSettings() {
         >
           {user?.name ?? user?.username ?? localize('com_nav_user')}
         </div>
+        <div className="flex items-center">
+          <ClearCacheButton />
+        </div>
       </Select.Select>
       <Select.SelectPopover
         className="popover-ui w-[235px]"
@@ -113,7 +117,7 @@ function AccountSettings() {
           <FileText className="icon-md" aria-hidden="true" />
           {localize('com_nav_my_files')}
         </Select.SelectItem>
-        {startupConfig?.helpAndFaqURL !== '/' && (
+        {startupConfig?.helpAndFaqURL && (
           <Select.SelectItem
             value=""
             onClick={() => window.open(startupConfig?.helpAndFaqURL, '_blank')}

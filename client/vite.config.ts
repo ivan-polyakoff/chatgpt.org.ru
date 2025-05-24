@@ -37,12 +37,37 @@ export default defineConfig({
       },
       useCredentials: true,
       workbox: {
-        globPatterns: ['**/*'],
-        globIgnores: ['images/**/*'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp,mp3,txt,webmanifest}'],
+        globIgnores: [
+          'images/**/*',
+          '**/node_modules/**/*',
+          'sw.js',
+          'workbox-*.js',
+          'registerSW.js'
+        ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/oauth/],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/api\./,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 300, // 5 минут
+              },
+            },
+          },
+        ],
+        skipWaiting: true,
+        clientsClaim: true,
       },
-      includeAssets: ['**/*'],
+      includeAssets: [
+        'favicon.ico',
+        'robots.txt',
+        '**/*.{js,css,html,ico,png,svg,woff2,webp,mp3,txt,webmanifest}'
+      ],
       manifest: {
         name: 'LibreChat',
         short_name: 'LibreChat',

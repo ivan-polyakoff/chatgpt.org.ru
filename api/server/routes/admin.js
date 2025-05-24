@@ -5,6 +5,7 @@ const {
   getUser,
   banUser,
   unbanUser,
+  deleteUser,
 } = require('~/server/controllers/admin/UserController');
 const {
   listTransactions,
@@ -28,6 +29,8 @@ router.get('/users', listUsers);
 router.get('/users/:id', getUser);
 // Разбан пользователя
 router.post('/users/:id/unban', unbanUser);
+// Удаление пользователя
+router.delete('/users/:id', deleteUser);
 
 // Получение всех подписок для админки
 router.get('/subscriptions', async (req, res) => {

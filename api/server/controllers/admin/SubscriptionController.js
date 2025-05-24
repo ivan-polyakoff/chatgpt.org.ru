@@ -13,7 +13,7 @@ async function assignSubscription(req, res) {
   if (!email || !planKey) {
     return res.status(400).json({
       success: false,
-      message: 'Не указаны обязательные параметры: email и planKey'
+      message: 'Не указаны обязательные параметры: email и planKey',
     });
   }
 
@@ -23,7 +23,7 @@ async function assignSubscription(req, res) {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Пользователь не найден'
+        message: 'Пользователь не найден',
       });
     }
 
@@ -32,7 +32,7 @@ async function assignSubscription(req, res) {
     if (!plan) {
       return res.status(404).json({
         success: false,
-        message: 'План подписки не найден'
+        message: 'План подписки не найден',
       });
     }
 
@@ -42,7 +42,7 @@ async function assignSubscription(req, res) {
 
     // Находим текущую подписку пользователя или создаем новую
     let subscription = await UserSubscription.findOne({ user: user._id });
-    
+
     if (subscription) {
       // Обновляем существующую подписку
       subscription.plan = plan._id;
@@ -58,44 +58,54 @@ async function assignSubscription(req, res) {
         startDate: now,
         endDate,
         remainingMessages: plan.messageLimit,
-        status: 'active'
+        status: 'active',
       });
     }
 
     await subscription.save();
 
+    // Отправляем email уведомление (опционально)
+    let emailSent = false;
     if (checkEmailConfig()) {
-      await sendEmail({
-        email: user.email,
-        subject: 'Вам назначена подписка',
-        payload: {
-          appName: process.env.APP_TITLE || 'LibreChat',
-          name: user.name || user.username || user.email,
-          planName: plan.name,
-          durationDays: plan.durationDays,
-          year: new Date().getFullYear(),
-        },
-        template: 'assignSubscription.handlebars',
-      });
+      try {
+        await sendEmail({
+          email: user.email,
+          subject: 'Вам назначена подписка',
+          payload: {
+            appName: process.env.APP_TITLE || 'LibreChat',
+            name: user.name || user.username || user.email,
+            planName: plan.name,
+            durationDays: plan.durationDays,
+            year: new Date().getFullYear(),
+          },
+          template: 'assignSubscription.handlebars',
+        });
+        emailSent = true;
+        console.log(`Email notification sent to ${user.email} about subscription assignment`);
+      } catch (emailError) {
+        console.error('Error sending email notification:', emailError);
+        // Не прерываем выполнение, если отправка email не удалась
+      }
     }
 
     return res.json({
       success: true,
-      message: `Подписка "${plan.name}" успешно назначена пользователю ${email}`,
+      message: `Подписка "${plan.name}" успешно назначена пользователю ${email}${!emailSent ? ' (уведомление на email не отправлено)' : ''}`,
       subscription: {
         ...subscription.toObject(),
-        plan: plan.toObject()
-      }
+        plan: plan.toObject(),
+      },
+      emailSent,
     });
   } catch (error) {
     console.error('Error assigning subscription:', error);
     return res.status(500).json({
       success: false,
-      message: 'Произошла ошибка при назначении подписки'
+      message: 'Произошла ошибка при назначении подписки',
     });
   }
 }
 
 module.exports = {
-  assignSubscription
-}; 
+  assignSubscription,
+};

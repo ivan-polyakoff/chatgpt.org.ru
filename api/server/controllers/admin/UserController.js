@@ -1,5 +1,6 @@
 // Контроллеры админ-панели: управление пользователями
 const User = require('~/models/User');
+const UserSubscription = require('~/models/UserSubscription');
 const { getLogStores } = require('~/cache');
 const { ViolationTypes } = require('librechat-data-provider');
 const { logger } = require('~/config');
@@ -79,9 +80,81 @@ async function unbanUser(req, res) {
   }
 }
 
+// DELETE /api/admin/users/:id
+async function deleteUser(req, res) {
+  try {
+    const { id } = req.params;
+
+    // Проверяем, существует ли пользователь
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Пользователь не найден',
+      });
+    }
+
+    // Нельзя удалить самого себя
+    if (req.user._id.toString() === id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Нельзя удалить собственную учетную запись',
+      });
+    }
+
+    // Проверяем, что это не единственный администратор
+    if (user.role === 'ADMIN') {
+      const adminCount = await User.countDocuments({ role: 'ADMIN' });
+      if (adminCount <= 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Нельзя удалить единственного администратора',
+        });
+      }
+    }
+
+    logger.info(`Admin attempting to delete user: ${user.email} (ID: ${id})`);
+
+    // Удаляем связанные данные
+    try {
+      // Удаляем подписки пользователя
+      await UserSubscription.deleteMany({ user: id });
+      logger.info(`Deleted subscriptions for user: ${id}`);
+
+      // Удаляем пользователя из кеша банов (если есть)
+      await banCache.delete(id);
+      const banKey = `${ViolationTypes.BAN}:${id}`;
+      await keyvMongo.delete(banKey);
+      logger.info(`Cleared ban cache for user: ${id}`);
+
+      // Удаляем самого пользователя
+      await User.findByIdAndDelete(id);
+      logger.info(`Successfully deleted user: ${user.email} (ID: ${id})`);
+
+    } catch (cleanupError) {
+      logger.error(`Error during user cleanup for ${id}:`, cleanupError);
+      // Продолжаем выполнение, даже если очистка не удалась полностью
+    }
+
+    res.json({
+      success: true,
+      message: `Пользователь ${user.email} успешно удален`,
+    });
+
+  } catch (err) {
+    logger.error(`Error deleting user ${req.params.id}:`, err);
+    res.status(500).json({
+      success: false,
+      message: 'Произошла ошибка при удалении пользователя',
+      error: err.message,
+    });
+  }
+}
+
 module.exports = {
   listUsers,
   getUser,
   banUser,
   unbanUser,
+  deleteUser,
 };
