@@ -9,6 +9,7 @@ export interface TSubscriptionPlan {
   durationDays: number;
   messageLimit: number;
   allowedModels: string[];
+  modelDescriptions?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }

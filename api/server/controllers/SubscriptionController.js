@@ -3,6 +3,7 @@ const UserSubscription = require('~/models/UserSubscription');
 const axios = require('axios');
 const subscriptionConfig = require('../../config/subscriptionConfig');
 const { getModelsForPlan } = subscriptionConfig;
+const { expireSubscriptions } = require('../tasks/expireSubscriptions');
 
 // Получить список всех тарифных планов
 async function getPlans(req, res) {
@@ -20,15 +21,34 @@ async function getCurrentSubscription(req, res) {
   try {
     console.log('[SubscriptionController] Запрос подписки для пользователя:', req.user._id);
     
+    // Сначала обновляем статусы истекших подписок
+    try {
+      await expireSubscriptions();
+    } catch (expireError) {
+      console.error('[SubscriptionController] Ошибка при обновлении истекших подписок:', expireError);
+      // Продолжаем выполнение, так как это не критическая ошибка
+    }
+    
     const now = new Date();
-    // Находим подписку пользователя и связанный план
+    // Находим активную подписку пользователя
     const userSub = await UserSubscription.findOne({ 
       user: req.user._id,
-      endDate: { $gt: now }, // Только активные подписки
+      status: 'active',
+      endDate: { $gt: now }, // Только активные и не истекшие подписки
     }).populate('plan').lean();
     
     if (!userSub) {
-      console.log('[SubscriptionController] Подписка не найдена, возвращаем бесплатный тариф');
+      console.log('[SubscriptionController] Активная подписка не найдена, возвращаем бесплатный тариф');
+      
+      // Проверяем, есть ли истекшие подписки
+      const expiredSub = await UserSubscription.findOne({
+        user: req.user._id,
+        status: 'expired'
+      }).populate('plan').lean();
+      
+      if (expiredSub) {
+        console.log('[SubscriptionController] Найдена истекшая подписка:', expiredSub.plan.name);
+      }
       
       // Если нет активной подписки, считаем что это бесплатный тариф FREE
       const allowedModels = getModelsForPlan('free');
@@ -41,8 +61,11 @@ async function getCurrentSubscription(req, res) {
             key: 'free',
             name: 'Бесплатный тариф',
             allowedModels: allowedModels,
+            modelDescriptions: {},
           },
           active: false,
+          expired: !!expiredSub,
+          expiredPlan: expiredSub ? expiredSub.plan.name : null,
         },
       });
     }
@@ -87,14 +110,26 @@ async function getCurrentSubscription(req, res) {
       console.log('[SubscriptionController] Установлены модели из конфигурации:', envModels);
     }
     
+    // Убеждаемся что описания моделей включены в ответ
+    if (!modifiedUserSub.plan.modelDescriptions) {
+      modifiedUserSub.plan.modelDescriptions = {};
+    }
+    
+    // Проверяем сколько времени осталось до истечения
+    const timeLeft = userSub.endDate - now;
+    const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24));
+    
     console.log('[SubscriptionController] Отправляем клиенту подписку с моделями:', 
       modifiedUserSub.plan.allowedModels);
+    console.log('[SubscriptionController] Дней до истечения:', daysLeft);
     
     res.json({ 
       success: true, 
       subscription: { 
         ...modifiedUserSub,
         active: true,
+        daysLeft: daysLeft,
+        expired: false,
       },
     });
   } catch (err) {
@@ -182,6 +217,7 @@ async function confirmSubscription(req, res) {
       userSub.startDate = now;
       userSub.endDate = endDate;
       userSub.remainingMessages = remainingMessages;
+      userSub.status = 'active';
     } else {
       userSub = new UserSubscription({
         user: req.user._id,
@@ -189,6 +225,7 @@ async function confirmSubscription(req, res) {
         startDate: now,
         endDate,
         remainingMessages,
+        status: 'active',
       });
     }
     await userSub.save();

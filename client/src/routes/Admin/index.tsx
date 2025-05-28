@@ -10,6 +10,7 @@ import PromocodesPage from '~/components/Admin/PromocodesPage';
 import SettingsPage from '~/components/Admin/SettingsPage';
 import SubscriptionsPage from '~/components/Admin/SubscriptionsPage';
 import ModelsPage from '~/components/Admin/ModelsPage';
+import ModelDescriptionsPage from '~/components/Admin/ModelDescriptionsPage';
 import NotificationsPage from '~/components/Admin/NotificationsPage';
 import { 
   Moon, 
@@ -24,7 +25,8 @@ import {
   Bell, 
   Menu, 
   X,
-  LogOut
+  LogOut,
+  BookOpen
 } from 'lucide-react';
 
 function AdminLayout() {
@@ -79,6 +81,7 @@ function AdminLayout() {
     { to: 'settings', icon: KeyRound, label: 'Секретные настройки' },
     { to: 'subscriptions', icon: Gift, label: 'Подписки' },
     { to: 'models', icon: Code, label: 'Модели' },
+    { to: 'model-descriptions', icon: BookOpen, label: 'Описания моделей' },
   ];
 
   return (
@@ -102,9 +105,9 @@ function AdminLayout() {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-blue-700 dark:border-gray-700">
           <div>
-            <h1 className="text-2xl font-bold mb-1">Админ-панель</h1>
+          <h1 className="text-2xl font-bold mb-1">Админ-панель</h1>
             <p className="text-blue-200 dark:text-gray-300 text-sm">Управление системой</p>
-          </div>
+        </div>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-gray-700 transition-colors"
@@ -117,7 +120,7 @@ function AdminLayout() {
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           {navigationItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
+          <NavLink 
               key={to}
               to={to}
               onClick={() => setSidebarOpen(false)}
@@ -128,10 +131,10 @@ function AdminLayout() {
                   : 'text-blue-100 dark:text-gray-200 hover:bg-blue-700 dark:hover:bg-gray-700 hover:text-white'
                 }
               `}
-            >
+          >
               <Icon className="h-5 w-5 mr-3 transition-transform group-hover:scale-110" />
               <span className="font-medium">{label}</span>
-            </NavLink>
+          </NavLink>
           ))}
         </nav>
 
@@ -139,8 +142,8 @@ function AdminLayout() {
         <div className="border-t border-blue-700 dark:border-gray-700 p-6 space-y-4">
           {/* Theme toggle */}
           <div className="flex items-center justify-between">
-            <button
-              onClick={toggleTheme}
+            <button 
+              onClick={toggleTheme} 
               className="flex items-center space-x-2 p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-gray-700 transition-colors"
               aria-label="Переключить тему"
             >
@@ -152,7 +155,7 @@ function AdminLayout() {
           {/* User info */}
           <div className="text-blue-200 dark:text-gray-300 text-sm">
             <div className="flex items-center mb-2">
-              <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+            <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
               <span className="font-medium">Администратор</span>
             </div>
             <div className="truncate text-xs opacity-75">{user?.email}</div>
@@ -198,12 +201,12 @@ function AdminLayout() {
             <div className="max-w-7xl mx-auto">
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 min-h-[calc(100vh-12rem)] lg:min-h-[calc(100vh-8rem)]">
                 <div className="p-4 lg:p-6">
-                  <Outlet />
+          <Outlet />
                 </div>
               </div>
             </div>
-          </div>
-        </main>
+        </div>
+      </main>
       </div>
     </div>
   );
@@ -222,6 +225,7 @@ const adminRoutes = {
     { path: 'settings', element: <SettingsPage /> },
     { path: 'subscriptions', element: <SubscriptionsPage /> },
     { path: 'models', element: <ModelsPage /> },
+    { path: 'model-descriptions', element: <ModelDescriptionsPage /> },
   ],
 };
 

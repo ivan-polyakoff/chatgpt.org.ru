@@ -119,13 +119,13 @@ export default function UsersPage() {
         
         {/* Search */}
         <div className="relative w-full sm:w-auto sm:min-w-64">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-          </div>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            </div>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             className="
               focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400
               block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 
@@ -176,72 +176,72 @@ export default function UsersPage() {
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
+                  <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Email
-                </th>
+                      Email
+                    </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Роль
-                </th>
+                      Роль
+                    </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Подписка
-                </th>
+                      Подписка
+                    </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Зарегистрирован
-                </th>
+                      Зарегистрирован
+                    </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Статус
-                </th>
+                      Статус
+                    </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Действия
                 </th>
-              </tr>
-            </thead>
+                  </tr>
+                </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredUsers.map((u: any) => {
-                const subscription = getUserSubscription(u.id);
-                return (
+                  {filteredUsers.map((u: any) => {
+                    const subscription = getUserSubscription(u.id);
+                    return (
                 <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900 dark:text-white">{u.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {subscriptionsLoading ? (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Загрузка...</span>
-                    ) : subscription ? (
-                      <div>
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
-                          {subscription.plan?.name || 'Нет данных'}
+                          {u.role}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {subscriptionsLoading ? (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Загрузка...</span>
+                        ) : subscription ? (
+                          <div>
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">
+                              {subscription.plan?.name || 'Нет данных'}
+                            </span>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          До: {new Date(subscription.endDate).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ) : (
+                              До: {new Date(subscription.endDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ) : (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                        Бесплатный
-                      </span>
-                    )}
-                  </td>
+                            Бесплатный
+                          </span>
+                        )}
+                      </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(u.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {u.banned ? (
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {u.banned ? (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100">
-                        Заблокирован
-                      </span>
-                    ) : (
+                            Заблокирован
+                          </span>
+                        ) : (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
-                        Активен
-                      </span>
-                    )}
-                  </td>
+                            Активен
+                          </span>
+                        )}
+                      </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => handleDeleteUser(u.id, u.email)}
@@ -261,10 +261,10 @@ export default function UsersPage() {
                       )}
                     </button>
                   </td>
-                </tr>
-              )})}
-            </tbody>
-          </table>
+                    </tr>
+                  )})}
+                </tbody>
+              </table>
         </div>
       </div>
 

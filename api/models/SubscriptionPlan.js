@@ -8,6 +8,7 @@ const subscriptionPlanSchema = new Schema({
   durationDays: { type: Number, required: true },       // длительность плана в днях (0 для бессрочных)
   messageLimit: { type: Number, required: true },       // лимит сообщений за 24 часа (0 для неограниченных)
   allowedModels: { type: [String], required: true },    // доступные модели OpenAI
+  modelDescriptions: { type: Map, of: String, default: {} }, // описания моделей
 }, { timestamps: true });
 
 module.exports = mongoose.models.SubscriptionPlan || mongoose.model('SubscriptionPlan', subscriptionPlanSchema); 

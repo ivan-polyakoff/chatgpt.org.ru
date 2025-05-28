@@ -80,7 +80,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                     <li className="flex items-start">
             <CheckCircle2 className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
             <span className="text-gray-700 dark:text-gray-300">
-              15 сообщений раз в 24 часа
+              10 сообщений раз в 24 часа
             </span>
           </li>
           <li className="flex items-start">

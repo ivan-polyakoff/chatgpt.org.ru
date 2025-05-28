@@ -1,5 +1,5 @@
 import React from 'react';
-import { EarthIcon, Lock } from 'lucide-react';
+import { EarthIcon, Lock, CheckCircle } from 'lucide-react';
 import { isAgentsEndpoint, isAssistantsEndpoint } from 'librechat-data-provider';
 import type { Endpoint } from '~/common';
 import { useModelSelectorContext } from '../ModelSelectorContext';
@@ -13,47 +13,42 @@ interface EndpointModelItemProps {
   isSelected: boolean;
 }
 
-export function EndpointModelItem({ modelId, endpoint, isSelected }: EndpointModelItemProps) {
+export default function EndpointModelItem({ modelId, endpoint, isSelected }: EndpointModelItemProps) {
   const localize = useLocalize();
-  const { handleSelectModel, userSubscription, getFilteredModels } = useModelSelectorContext();
-  let isGlobal = false;
+  const { handleSelectModel, userSubscription, modelDescriptions } = useModelSelectorContext();
+
+  if (!modelId) {
+    return null;
+  }
+
+  // Получаем описание модели из централизованной системы
+  const modelDescription = modelDescriptions[modelId];
+
+  // Получаем доступные модели из подписки
+  const allowedModels = userSubscription?.subscription?.plan?.allowedModels || [];
+  const isAvailableForSubscription = endpoint.value !== 'openAI' || allowedModels.includes(modelId);
+
   let modelName = modelId;
-  const avatarUrl = endpoint?.modelIcons?.[modelId ?? ''] || null;
+  let avatarUrl = '';
+  let isGlobal = false;
 
-  // Проверяем, доступна ли модель для текущей подписки
-  const isAvailableForSubscription = React.useMemo(() => {
-    if (!modelId || endpoint.value !== 'openAI') {
-      return true;
-    }
-    const allowedModels = getFilteredModels('openAI', [modelId]);
-    return allowedModels.length > 0;
-  }, [modelId, endpoint.value, getFilteredModels]);
+  // Используем отображаемое название из описания, если есть
+  if (modelDescription?.displayName) {
+    modelName = modelDescription.displayName;
+  }
 
-  // Получаем текущий план пользователя
-  const currentPlanKey = userSubscription?.subscription?.plan?.key?.toLowerCase() || 'free';
-  const planName = userSubscription?.subscription?.plan?.name || 'Бесплатный';
-  
-  // Определяем, какой план нужен для модели
-  const requiredPlan = React.useMemo(() => {
-    if (!modelId || endpoint.value !== 'openAI' || isAvailableForSubscription) {
-      return null;
-    }
-    // Определяем требуемый план на основе модели
-    // Это можно настроить в соответствии с вашей логикой
-    if (modelId.includes('o4')) {
-      return { key: 'pro', name: 'Pro' };
-    } else if (modelId.includes('o3') && !modelId.includes('mini')) {
-      return { key: 'standard', name: 'Standard' };
-    } else if (modelId.includes('gpt-4o') && !modelId.includes('mini')) {
-      return { key: 'mini', name: 'Mini' };
-    }
-    return { key: 'mini', name: 'Mini' };
-  }, [modelId, endpoint.value, isAvailableForSubscription]);
+  // Получаем URL аватара для модели
+  if (endpoint.modelIcons && endpoint.modelIcons[modelId]) {
+    avatarUrl = endpoint.modelIcons[modelId] || '';
+  }
 
-  // Use custom names if available
+  // Получаем информацию о модели из эндпоинта
+  const modelInfo = endpoint?.models?.find((m) => m.name === modelId);
+  isGlobal = modelInfo?.isGlobal ?? false;
+
+  // Используем кастомные имена если доступны
   if (endpoint && modelId && isAgentsEndpoint(endpoint.value) && endpoint.agentNames?.[modelId]) {
     modelName = endpoint.agentNames[modelId];
-
     const modelInfo = endpoint?.models?.find((m) => m.name === modelId);
     isGlobal = modelInfo?.isGlobal ?? false;
   } else if (
@@ -69,49 +64,110 @@ export function EndpointModelItem({ modelId, endpoint, isSelected }: EndpointMod
     <MenuItem
       key={modelId}
       onClick={() => isAvailableForSubscription && handleSelectModel(endpoint, modelId ?? '')}
-      className={`flex h-8 w-full items-center justify-start rounded-lg px-3 py-2 text-sm ${isAvailableForSubscription ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
+      className={`group relative w-full px-3 py-2.5 rounded-lg border transition-all duration-200 ${
+        isAvailableForSubscription
+          ? 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-600'
+          : 'cursor-not-allowed opacity-60'
+      } ${
+        isSelected
+          ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-300 dark:border-blue-600 shadow-sm'
+          : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+      }`}
     >
-      <div className="flex items-center gap-2">
-        {avatarUrl ? (
-          <div className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full">
-            <img src={avatarUrl} alt={modelName ?? ''} className="h-full w-full object-cover" />
-          </div>
-        ) : (isAgentsEndpoint(endpoint.value) || isAssistantsEndpoint(endpoint.value)) &&
-          endpoint.icon ? (
-            <div className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3 min-w-0 flex-1">
+          {/* Аватар модели или иконка эндпоинта */}
+          {avatarUrl ? (
+            <div className="flex-shrink-0 w-6 h-6 rounded-full overflow-hidden">
+              <img src={avatarUrl} alt={modelName} className="w-full h-full object-cover" />
+            </div>
+          ) : (isAgentsEndpoint(endpoint.value) || isAssistantsEndpoint(endpoint.value)) && endpoint.icon ? (
+            <div className="flex-shrink-0 w-6 h-6 rounded-full overflow-hidden flex items-center justify-center">
               {endpoint.icon}
             </div>
           ) : null}
-        <span>{modelName}</span>
-      </div>
-      {isGlobal && <EarthIcon className="ml-auto size-4 text-green-400" />}
-      {!isAvailableForSubscription && requiredPlan && (
-        <TooltipAnchor
-          description={`Для использования этой модели необходим тариф ${requiredPlan.name} или выше. Сейчас у вас тариф ${planName}.`}
-          render={
-            <div className="ml-auto flex items-center gap-1 text-amber-500 dark:text-amber-400">
-              <Lock className="size-4" />
+          
+          {/* Название модели */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center space-x-2">
+              <span className={`font-medium truncate ${
+                isSelected 
+                  ? 'text-blue-900 dark:text-blue-100' 
+                  : 'text-gray-900 dark:text-gray-100'
+              }`}>
+                {modelName}
+              </span>
+              
+              {/* Показываем техническое название, если используется displayName */}
+              {modelDescription?.displayName && modelDescription.displayName !== modelId && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate">
+                  ({modelId})
+                </span>
+              )}
+              
+              {/* Статусы */}
+              <div className="flex items-center space-x-1">
+                {isGlobal && (
+                  <EarthIcon className="w-4 h-4 text-green-500 dark:text-green-400" />
+                )}
+                {isSelected && (
+                  <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                )}
+              </div>
             </div>
-          }
-        />
-      )}
-      {isSelected && (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="block"
-        >
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12ZM16.0755 7.93219C16.5272 8.25003 16.6356 8.87383 16.3178 9.32549L11.5678 16.0755C11.3931 16.3237 11.1152 16.4792 10.8123 16.4981C10.5093 16.517 10.2142 16.3973 10.0101 16.1727L7.51006 13.4227C7.13855 13.014 7.16867 12.3816 7.57733 12.0101C7.98598 11.6386 8.61843 11.6687 8.98994 12.0773L10.6504 13.9039L14.6822 8.17451C15 7.72284 15.6238 7.61436 16.0755 7.93219Z"
-            fill="currentColor"
+            
+            {/* Описание модели из централизованной системы */}
+            {modelDescription?.description && (
+              <p className={`text-xs mt-1 leading-relaxed ${
+                isSelected 
+                  ? 'text-blue-700 dark:text-blue-300' 
+                  : 'text-gray-600 dark:text-gray-400'
+              }`}>
+                {modelDescription.description}
+              </p>
+            )}
+            
+            {/* Теги модели */}
+            {modelDescription?.tags && modelDescription.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {modelDescription.tags.slice(0, 2).map((tag: string, index: number) => (
+                  <span 
+                    key={index} 
+                    className={`px-1.5 py-0.5 text-xs rounded text-nowrap ${
+                      isSelected
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-300'
+                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                    }`}
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {modelDescription.tags.length > 2 && (
+                  <span className={`px-1.5 py-0.5 text-xs rounded ${
+                    isSelected
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                  }`}>
+                    +{modelDescription.tags.length - 2}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Иконка блокировки для недоступных моделей */}
+        {!isAvailableForSubscription && (
+          <TooltipAnchor
+            description="Модель недоступна в вашем тарифном плане"
+            render={
+              <div className="flex-shrink-0 ml-2">
+                <Lock className="w-4 h-4 text-gray-400" />
+              </div>
+            }
           />
-        </svg>
-      )}
+        )}
+      </div>
     </MenuItem>
   );
 }

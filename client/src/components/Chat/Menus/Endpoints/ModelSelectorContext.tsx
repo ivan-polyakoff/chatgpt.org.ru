@@ -8,6 +8,9 @@ import { useEndpoints, useSelectorEffects, useKeyDialog } from '~/hooks';
 import useSelectMention from '~/hooks/Input/useSelectMention';
 import { useGetEndpointsQuery, useGetUserSubscriptionQuery } from '~/data-provider';
 import { filterItems } from './utils';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthContext } from '~/hooks/AuthContext';
+import axios from 'axios';
 
 type ModelSelectorContextType = {
   // State
@@ -24,6 +27,9 @@ type ModelSelectorContextType = {
   // Subscription
   userSubscription: any;
   isLoadingSubscription: boolean;
+  // Model Descriptions
+  modelDescriptions: Record<string, any>;
+  isLoadingDescriptions: boolean;
 
   // Functions
   endpointRequiresUserKey: (endpoint: string) => boolean;
@@ -81,6 +87,7 @@ function getModelsBySubscription(planKey: string, config: any): string[] {
 }
 
 export function ModelSelectorProvider({ children, startupConfig }: ModelSelectorProviderProps) {
+  const { token } = useAuthContext();
   const agentsMap = useAgentsMapContext();
   const assistantsMap = useAssistantsMapContext();
   const { data: endpointsConfig } = useGetEndpointsQuery();
@@ -88,6 +95,30 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
 
   // Получаем информацию о подписке пользователя
   const { data: userSubscriptionData, isLoading: isLoadingSubscription } = useGetUserSubscriptionQuery();
+
+  // Получаем централизованные описания моделей
+  const { data: modelDescriptionsData, isLoading: isLoadingDescriptions } = useQuery(
+    ['model-descriptions-map'],
+    async () => {
+      if (!token) return {};
+      try {
+        const res = await axios.get('/api/admin/model-descriptions/map', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        return res.data.descriptions || {};
+      } catch (error) {
+        console.log('Описания моделей недоступны (не администратор)');
+        return {};
+      }
+    },
+    {
+      enabled: !!token,
+      staleTime: 5 * 60 * 1000, // 5 минут
+      cacheTime: 10 * 60 * 1000, // 10 минут
+    }
+  );
+
+  const modelDescriptions = modelDescriptionsData || {};
 
   // Получаем текущий план пользователя и доступные модели
   const currentPlanKey = userSubscriptionData?.subscription?.plan?.key?.toLowerCase() || 'free';
@@ -284,6 +315,9 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     // Subscription
     userSubscription: userSubscriptionData,
     isLoadingSubscription,
+    // Model Descriptions
+    modelDescriptions,
+    isLoadingDescriptions,
 
     // Functions
     handleSelectSpec,

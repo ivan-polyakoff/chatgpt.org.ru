@@ -6,6 +6,7 @@ const {
   setNotification,
   deleteNotification,
   markReadNotification,
+  getNotificationStats,
 } = require('~/server/controllers/admin/NotificationController');
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.get('/', optionalJwtAuth, getNotification);
 // Админские маршруты для управления оповещениями
 router.post('/', requireJwtAuth, checkAdmin, setNotification);
 router.delete('/', requireJwtAuth, checkAdmin, deleteNotification);
+router.get('/stats', requireJwtAuth, checkAdmin, getNotificationStats);
 router.post('/read', requireJwtAuth, markReadNotification);
 
 module.exports = router; 

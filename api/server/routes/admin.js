@@ -16,7 +16,15 @@ const { listPromoCodes, createPromoCode, updatePromoCode } = require('~/server/c
 const { getSettings, updateSettings } = require('~/server/controllers/admin/SettingsController');
 const { assignSubscription } = require('~/server/controllers/admin/SubscriptionController');
 const { getModels, updateModels } = require('~/server/controllers/admin/ModelsController');
+const { expireSubscriptions } = require('../tasks/expireSubscriptions');
 const UserSubscription = require('~/models/UserSubscription');
+const {
+  getModelDescriptions,
+  createModelDescription,
+  updateModelDescription,
+  deleteModelDescription,
+  getModelDescriptionsMap,
+} = require('~/server/controllers/admin/ModelDescriptionController');
 
 const router = express.Router();
 
@@ -64,8 +72,33 @@ router.patch('/settings', updateSettings);
 // Назначить подписку пользователю по email
 router.post('/assign-subscription', assignSubscription);
 
+// Обновить истекшие подписки
+router.post('/expire-subscriptions', async (req, res) => {
+  try {
+    const result = await expireSubscriptions();
+    res.json({ 
+      success: true, 
+      expired: result.expired,
+      message: `Обновлено статусов истекших подписок: ${result.expired}`
+    });
+  } catch (error) {
+    console.error('Error expiring subscriptions:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Ошибка при обновлении истекших подписок' 
+    });
+  }
+});
+
 // Управление моделями по тарифам
 router.get('/models', getModels);
 router.patch('/models', updateModels);
+
+// Описания моделей
+router.get('/model-descriptions', getModelDescriptions);
+router.get('/model-descriptions/map', getModelDescriptionsMap);
+router.post('/model-descriptions', createModelDescription);
+router.patch('/model-descriptions/:id', updateModelDescription);
+router.delete('/model-descriptions/:id', deleteModelDescription);
 
 module.exports = router;

@@ -14,6 +14,7 @@ async function getModels(req, res) {
       planKey: plan.key,
       planName: plan.name,
       allowedModels: plan.allowedModels || [],
+      modelDescriptions: plan.modelDescriptions || {},
     }));
     
     return res.json({ success: true, modelsData });
@@ -24,13 +25,13 @@ async function getModels(req, res) {
 }
 
 /**
- * Обновить список моделей для конкретного тарифа
+ * Обновить список моделей и их описания для конкретного тарифа
  * PATCH /api/admin/models
- * Body: { planKey: string, models: string[] }
+ * Body: { planKey: string, models: string[], descriptions?: Record<string, string> }
  */
 async function updateModels(req, res) {
   try {
-    const { planKey, models } = req.body;
+    const { planKey, models, descriptions } = req.body;
     
     if (!planKey) {
       return res.status(400).json({ success: false, message: 'Не указан ключ тарифного плана' });
@@ -48,15 +49,38 @@ async function updateModels(req, res) {
     
     // Обновляем список разрешенных моделей
     plan.allowedModels = models;
+    
+    // Обновляем описания моделей, если они переданы
+    if (descriptions && typeof descriptions === 'object') {
+      // Инициализируем описания если их нет
+      if (!plan.modelDescriptions) {
+        plan.modelDescriptions = {};
+      }
+      
+      // Фильтруем описания только для существующих моделей
+      const filteredDescriptions = {};
+      models.forEach(model => {
+        if (descriptions[model]) {
+          filteredDescriptions[model] = descriptions[model];
+        }
+      });
+      
+      plan.modelDescriptions = filteredDescriptions;
+    }
+    
     await plan.save();
     
     logger.info(`[ModelsController] Обновлены модели для плана ${planKey}: ${models.join(', ')}`);
+    if (descriptions) {
+      logger.info(`[ModelsController] Обновлены описания для плана ${planKey}`);
+    }
     
     return res.json({ 
       success: true, 
-      message: 'Модели успешно обновлены', 
+      message: 'Модели и описания успешно обновлены', 
       planKey,
-      models
+      models,
+      descriptions: plan.modelDescriptions || {}
     });
   } catch (err) {
     logger.error('[ModelsController] Ошибка обновления моделей:', err);
