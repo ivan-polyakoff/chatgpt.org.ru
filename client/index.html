@@ -49,6 +49,28 @@
       document.head.appendChild(loadingContainerStyle);
     </script>
     <script defer type="module" src="/src/main.jsx"></script>
+    <script>
+      // Загружаем Jivo только на десктопах
+      function isDesktop() {
+        // Проверяем User Agent на мобильные устройства
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/.test(userAgent);
+        
+        // Проверяем размер экрана (ширина больше 768px считается десктопом)
+        const isLargeScreen = window.innerWidth > 768;
+        
+        // Возвращаем true только если это не мобильное устройство И экран достаточно большой
+        return !isMobile && isLargeScreen;
+      }
+      
+      // Загружаем скрипт только для десктопов
+      if (isDesktop()) {
+        const jivoScript = document.createElement('script');
+        jivoScript.src = '//code.jivo.ru/widget/jfpooeOG5G';
+        jivoScript.async = true;
+        document.head.appendChild(jivoScript);
+      }
+    </script>
   </head>
   <body>
     <div id="root">

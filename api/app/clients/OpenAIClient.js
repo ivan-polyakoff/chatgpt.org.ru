@@ -1733,7 +1733,7 @@ ${convo}
         prompt: prompt,
         n: 1, // Количество изображений
         size: "16:9", // Размер изображения
-        quality: "standard", // Качество изображения
+        quality: "auto", // Качество изображения
         response_format: "url" // Формат ответа - URL
       };
       

@@ -16,6 +16,7 @@ import dashboardRoutes from './Dashboard';
 import adminRoutes from './Admin';
 import ShareRoute from './ShareRoute';
 import ChatRoute from './ChatRoute';
+import PaymentResult from './PaymentResult';
 import Search from './Search';
 import Root from './Root';
 
@@ -76,6 +77,10 @@ export const router = createBrowserRouter([
       },
       dashboardRoutes,
       adminRoutes,
+      {
+        path: 'balance',
+        element: <PaymentResult />,
+      },
       {
         path: '/',
         element: <Root />,

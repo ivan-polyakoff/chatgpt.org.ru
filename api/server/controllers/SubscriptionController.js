@@ -43,7 +43,7 @@ async function getCurrentSubscription(req, res) {
       // Проверяем, есть ли истекшие подписки
       const expiredSub = await UserSubscription.findOne({
         user: req.user._id,
-        status: 'expired'
+        status: 'expired',
       }).populate('plan').lean();
       
       if (expiredSub) {
@@ -93,7 +93,7 @@ async function getCurrentSubscription(req, res) {
       // Устанавливаем модели из конфигурации
       modifiedUserSub.plan = { 
         ...modifiedUserSub.plan,
-        allowedModels: envModels 
+        allowedModels: envModels, 
       };
       
       // Обновляем модели в базе данных
@@ -177,7 +177,7 @@ async function confirmSubscription(req, res) {
     return res.status(400).json({ success: false, message: 'operationId and planKey are required' });
   }
   try {
-    // Проверяем статус оплаты
+    // Проверяем статус оплаты в ЮKassa
     const payResp = await axios.get(
       `${req.protocol}://${req.get('host')}/api/transactions/payment-status`,
       { params: { operationId }, headers: { Authorization: req.headers.authorization } },
@@ -187,7 +187,11 @@ async function confirmSubscription(req, res) {
     }
     const op = payResp.data.data;
     if (op.status !== 'APPROVED') {
-      return res.status(400).json({ success: false, message: `Payment not approved: ${op.status}`, status: op.status });
+      return res.status(400).json({ 
+        success: false, 
+        message: `Payment not approved: ${op.status}`, 
+        status: op.status,
+      });
     }
     // Получаем информацию о плане
     const plan = await SubscriptionPlan.findOne({ key: planKey });
@@ -209,16 +213,22 @@ async function confirmSubscription(req, res) {
     // Рассчитываем даты подписки
     const now = new Date();
     const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+    
     // Создаём или обновляем подписку пользователя
     let userSub = await UserSubscription.findOne({ user: req.user._id });
     const remainingMessages = plan.messageLimit;
-    if (userSub && userSub.endDate > now) {
+    
+    if (userSub) {
+      // Обновляем существующую подписку независимо от её статуса
+      console.log('[SubscriptionController] Обновляем существующую подписку с', userSub.plan, 'на', plan._id);
       userSub.plan = plan._id;
       userSub.startDate = now;
       userSub.endDate = endDate;
       userSub.remainingMessages = remainingMessages;
       userSub.status = 'active';
     } else {
+      // Создаем новую подписку
+      console.log('[SubscriptionController] Создаем новую подписку для плана', plan._id);
       userSub = new UserSubscription({
         user: req.user._id,
         plan: plan._id,
@@ -228,7 +238,9 @@ async function confirmSubscription(req, res) {
         status: 'active',
       });
     }
+    
     await userSub.save();
+    console.log('[SubscriptionController] Подписка успешно сохранена:', userSub);
     res.json({ success: true, subscription: userSub });
   } catch (err) {
     console.error('confirmSubscription error:', err);
