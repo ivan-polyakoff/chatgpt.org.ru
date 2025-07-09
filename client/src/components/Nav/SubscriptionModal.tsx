@@ -112,31 +112,36 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
     const featureItems = {
       free: [
         { text: '10 сообщений в 24 часа', highlight: false },
-        { text: 'GPT-4.1 Mini — быстрая модель', highlight: false },
-        { text: 'O1 Mini — для базовых задач', highlight: false },
+        { text: 'GPT o3 — для кодинга', highlight: false },
+        { text: 'GPT 4o — для базовых задач', highlight: false },
+        { text: 'GPT 4.1 Mini — быстрая модель', highlight: false },
+        { text: 'Gemini 2.0 Flash — Быстрая модель для данных', highlight: false },
         { text: 'Поддержка в чате', highlight: false },
       ],
       mini: [
         { text: '100 сообщений в 24 часа', highlight: true },
-        { text: 'Всё из бесплатного тарифа', highlight: false },
-        { text: 'GPT-4o — продвинутая модель', highlight: true },
-        { text: 'O3 Mini — для кодинга', highlight: true },
+        { text: 'Всё из бесплатного тарифа', highlight: true },
+        { text: 'GPT o4 Mini — Быстрая и простая модель', highlight: true },
+        { text: 'Gemini 2.5 Pro — передовая модель от Google', highlight: true },
+        { text: 'Grok 3 — флагман от Илона Маска', highlight: true },
+        { text: 'GPT Image 1 — Генерация Изображений', highlight: true },
         { text: 'Приоритетная поддержка', highlight: false },
       ],
       standard: [
         { text: '1000 сообщений в 24 часа', highlight: true },
-        { text: 'Всё из тарифа MINI', highlight: false },
-        { text: 'O4 Mini — новейшие возможности', highlight: true },
+        { text: 'Всё из тарифа MINI', highlight: true },
+        { text: 'Claude Sonnet 4 — передовая модель от Anthropic', highlight: true },
         { text: 'Генерация изображений', highlight: true },
-        { text: 'VPN в подарок', highlight: true, special: true },
+        { text: 'Приоритетная поддержка', highlight: true, special: true },
       ],
       pro: [
         { text: 'Неограниченные сообщения', highlight: true },
-        { text: 'Всё из тарифа STANDARD', highlight: false },
-        { text: 'GPT-4.1 (полная версия)', highlight: true },
-        { text: 'O1 и O3 (полные версии)', highlight: true },
+        { text: 'Всё из тарифа STANDARD', highlight: true },
+        { text: 'GPT 4.1 (полная версия)', highlight: true },
+        { text: 'Deepseek 3 — анализ больших данных, кодинг ', highlight: true },
+        { text: 'Claude Sonnet 3 | 3.7 | 4 — модели от Anthropic', highlight: true },
         { text: 'Приоритетный доступ к новинкам', highlight: true },
-        { text: 'VPN + премиум поддержка', highlight: true, special: true },
+        { text: 'Премиум поддержка', highlight: true, special: true },
       ],
     };
 
@@ -211,11 +216,6 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
     e.stopPropagation();
     
     if (!isSelectable || isCurrent) {
-      return;
-    }
-    
-    if (plan.key.toLowerCase() === 'pro') {
-      window.open('https://t.me/covekss', '_blank');
       return;
     }
     
@@ -385,7 +385,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                         key={plan.key}
                         onClick={() => handlePlanClick(plan, isSelectable)}
                         className={cn(
-                          "relative overflow-hidden rounded-2xl transition-all duration-300 hover:scale-[1.02]",
+                          "relative overflow-hidden rounded-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col",
                           isSelectable ? "cursor-pointer" : "cursor-not-allowed opacity-60",
                           isSelected 
                             ? "ring-2 ring-purple-500 shadow-xl shadow-purple-500/25" 
@@ -403,13 +403,6 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                             ПОПУЛЯРНЫЙ
                           </div>
                         )}
-
-                        {/* VPN бейдж */}
-                        {plan.price > 0 && plan.key !== 'mini' && (
-                          <div className="absolute top-3 left-3 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-lg">
-                            🎁 VPN
-                          </div>
-                        )}
                         
                         {/* Текущий тариф */}
                         {isCurrent && (
@@ -418,7 +411,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                           </div>
                         )}
                         
-                        <div className="p-6">
+                        <div className="p-6 flex flex-col grow">
                           {/* Иконка и название */}
                           <div className="flex items-center justify-center mb-4">
                             <div className={cn("p-3 rounded-2xl", theme.icon)}>
@@ -458,13 +451,12 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                           <div className="min-h-[200px]">
                             {renderPlanFeatures(plan.key)}
                           </div>
-                          
-                          {/* Кнопка */}
+                          <div className="mt-auto mb-[2px]">
                           <button
                             onClick={(e) => handlePlanButtonClick(e, plan, isSelectable, isCurrent)}
                             disabled={!isSelectable || isCurrent || processing}
                             className={cn(
-                              'mt-6 w-full py-3 px-4 rounded-xl text-center font-semibold transition-all duration-200 flex items-center justify-center group',
+                              'w-full py-3 px-4 rounded-xl text-center font-semibold transition-all duration-200 flex items-center justify-center group',
                               isSelectable && !isCurrent
                                 ? theme.button + ' shadow-lg hover:shadow-xl'
                                 : isCurrent
@@ -481,11 +473,6 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                               'Ваш тариф'
                             ) : isLowerThanCurrent ? (
                               'Недоступно'
-                            ) : plan.key.toLowerCase() === 'pro' ? (
-                              <>
-                                Telegram
-                                <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                              </>
                             ) : (
                               <>
                                 <Gift className="h-5 w-5 mr-2" />
@@ -494,6 +481,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                               </>
                             )}
                           </button>
+                          </div>
                         </div>
                       </div>
                     );

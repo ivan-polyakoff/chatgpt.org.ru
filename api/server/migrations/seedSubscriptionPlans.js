@@ -12,7 +12,7 @@ async function seedSubscriptionPlans() {
       name: 'Бесплатный',
       price: 0,
       durationDays: 0,
-      messageLimit: 15,
+      messageLimit: 10,
       allowedModels: process.env.OPENAI_MODELS_FREE ? process.env.OPENAI_MODELS_FREE.split(',') : [],
     },
     {
@@ -33,7 +33,7 @@ async function seedSubscriptionPlans() {
     },
     {
       key: 'pro',
-      name: 'ChatGPT Pro',
+      name: 'Pro',
       price: 1000,
       durationDays: 30,
       messageLimit: 0,

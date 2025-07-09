@@ -14,7 +14,7 @@ function getLimitFromEnv(envKey, defaultValue = 0) {
 
 // Лимиты сообщений для разных тарифов (из переменных окружения)
 const MESSAGE_LIMITS = {
-  free: getLimitFromEnv('MESSAGE_LIMIT_FREE', 15),
+  free: getLimitFromEnv('MESSAGE_LIMIT_FREE', 10),
   mini: getLimitFromEnv('MESSAGE_LIMIT_MINI', 100),
   standard: getLimitFromEnv('MESSAGE_LIMIT_STANDARD', 1000),
   pro: getLimitFromEnv('MESSAGE_LIMIT_PRO', 0), // 0 = безлимитный
