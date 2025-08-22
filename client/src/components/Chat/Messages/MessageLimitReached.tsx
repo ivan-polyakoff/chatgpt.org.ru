@@ -97,7 +97,7 @@ export default function MessageLimitReached({
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Zap className="h-5 w-5" />
-                  <span>Обновить план</span>
+                  <span>Расширить лимиты</span>
                 </div>
               </button>
               

@@ -28,7 +28,7 @@ async function seedSubscriptionPlans() {
       name: 'Стандартный',
       price: 500,
       durationDays: 30,
-      messageLimit: 1000,
+      messageLimit: 100,
       allowedModels: process.env.OPENAI_MODELS_STANDARD ? process.env.OPENAI_MODELS_STANDARD.split(',') : [],
     },
     {

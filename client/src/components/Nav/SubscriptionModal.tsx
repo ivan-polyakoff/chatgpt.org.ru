@@ -111,35 +111,35 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
     
     const featureItems = {
       free: [
-        { text: '10 сообщений в 24 часа', highlight: false },
-        { text: 'GPT o3 — для кодинга', highlight: false },
-        { text: 'GPT 4o — для базовых задач', highlight: false },
-        { text: 'GPT 4.1 Mini — быстрая модель', highlight: false },
-        { text: 'Gemini 2.0 Flash — Быстрая модель для данных', highlight: false },
+        { text: '10 сообщений в 24 часа', highlight: true },
+        { text: 'GPT o3 — для кодинга', highlight: true },
+        { text: 'GPT 4o — для базовых задач', highlight: true },
+        { text: 'GPT 4.1 Mini — быстрая модель', highlight: true },
+        { text: 'Gemini 2.0 Flash — Быстрая модель для данных', highlight: true },
         { text: 'Поддержка в чате', highlight: false },
       ],
       mini: [
         { text: '100 сообщений в 24 часа', highlight: true },
-        { text: 'Всё из бесплатного тарифа', highlight: true },
+        { text: 'GPT 5 Nano', highlight: true },
         { text: 'GPT o4 Mini — Быстрая и простая модель', highlight: true },
         { text: 'Gemini 2.5 Pro — передовая модель от Google', highlight: true },
         { text: 'Grok 3 — флагман от Илона Маска', highlight: true },
-        { text: 'GPT Image 1 — Генерация Изображений', highlight: true },
+        { text: 'Генерация Изображений', highlight: true },
         { text: 'Приоритетная поддержка', highlight: false },
       ],
       standard: [
-        { text: '1000 сообщений в 24 часа', highlight: true },
+        { text: '100 сообщений в 24 часа', highlight: true },
         { text: 'Всё из тарифа MINI', highlight: true },
-        { text: 'Claude Sonnet 4 — передовая модель от Anthropic', highlight: true },
+        { text: 'GPT 5 Mini', highlight: true },
         { text: 'Генерация изображений', highlight: true },
         { text: 'Приоритетная поддержка', highlight: true, special: true },
       ],
       pro: [
         { text: 'Неограниченные сообщения', highlight: true },
         { text: 'Всё из тарифа STANDARD', highlight: true },
-        { text: 'GPT 4.1 (полная версия)', highlight: true },
-        { text: 'Deepseek 3 — анализ больших данных, кодинг ', highlight: true },
-        { text: 'Claude Sonnet 3 | 3.7 | 4 — модели от Anthropic', highlight: true },
+        { text: 'GPT 5 (чат)', highlight: true },
+        { text: 'GPT 4.1 — анализ больших данных, кодинг ', highlight: true },
+        { text: 'Deepseek 3', highlight: true },
         { text: 'Приоритетный доступ к новинкам', highlight: true },
         { text: 'Премиум поддержка', highlight: true, special: true },
       ],
@@ -490,8 +490,8 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                 
                 {/* Нижняя панель с кнопками */}
                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
-                  <div className="text-sm text-gray-500 dark:text-gray-400 text-center sm:text-left">
-                    💳 Безопасная оплата через ЮKassa
+                  <div className="text-sm text-gray-500 dark:text-gray-400 text-center sm:text-left space-y-1">
+                    <div>💳 Безопасная оплата через ЮKassa  ❌ Без автоматических списаний</div>
                   </div>
                   
                   <div className="flex justify-center sm:justify-end">

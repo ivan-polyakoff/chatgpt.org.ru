@@ -103,8 +103,6 @@ const fetchModels = async ({
       await cache.set(tokenKey ?? name, endpointTokenConfig);
     }
     models = input.data.map((item) => item.id);
-    // Filter out problematic imagen model
-    models = models.filter(model => model !== "imagen-4.0-ultra-generate-exp-05-20");
   } catch (error) {
     const logMessage = `Failed to fetch models from ${azure ? 'Azure ' : ''}${name} API`;
     logAxiosError({ message: logMessage, error });
@@ -226,6 +224,39 @@ const getOpenAIModels = async (opts) => {
     return models;
   }
 
+  // NEW: Check for subscription models if not assistants/azure/plugins
+  if (!opts.assistants && !opts.azure && !opts.plugins) {
+    const subscriptionModels = new Set();
+    
+    // Add models from all subscription tiers
+    if (process.env.OPENAI_MODELS_FREE) {
+      splitAndTrim(process.env.OPENAI_MODELS_FREE).forEach(m => subscriptionModels.add(m));
+    }
+    if (process.env.OPENAI_MODELS_MINI) {
+      splitAndTrim(process.env.OPENAI_MODELS_MINI).forEach(m => subscriptionModels.add(m));
+    }
+    if (process.env.OPENAI_MODELS_STANDARD) {
+      splitAndTrim(process.env.OPENAI_MODELS_STANDARD).forEach(m => subscriptionModels.add(m));
+    }
+    if (process.env.OPENAI_MODELS_PRO) {
+      splitAndTrim(process.env.OPENAI_MODELS_PRO).forEach(m => subscriptionModels.add(m));
+    }
+    
+    // If we have subscription models, use them instead of ForgetAPI
+    if (subscriptionModels.size > 0) {
+      models = Array.from(subscriptionModels);
+      
+      // Filter out any problematic models
+      models = models.filter(model => model !== 'imagen-4.0-ultra-generate-exp-05-20');
+      
+      // Ensure chatgpt-4o-latest is first (common default across all tiers)
+      if (models.includes('chatgpt-4o-latest')) {
+        models = ['chatgpt-4o-latest', ...models.filter(m => m !== 'chatgpt-4o-latest')];
+      }
+      
+      return models;
+    }
+  }
 
   if (userProvidedOpenAI) {
     return models;

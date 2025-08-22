@@ -16,7 +16,7 @@ function getLimitFromEnv(envKey, defaultValue = 0) {
 const MESSAGE_LIMITS = {
   free: getLimitFromEnv('MESSAGE_LIMIT_FREE', 10),
   mini: getLimitFromEnv('MESSAGE_LIMIT_MINI', 100),
-  standard: getLimitFromEnv('MESSAGE_LIMIT_STANDARD', 1000),
+  standard: getLimitFromEnv('MESSAGE_LIMIT_STANDARD', 100),
   pro: getLimitFromEnv('MESSAGE_LIMIT_PRO', 0), // 0 = безлимитный
 };
 

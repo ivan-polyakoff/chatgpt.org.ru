@@ -578,7 +578,7 @@ class OpenAIClient extends BaseClient {
   /** @type {sendCompletion} */
   async sendCompletion(payload, opts = {}) {
     // Если модель DALL-E 3, используем специальный метод для генерации изображений
-    if (this.isImageGenerationModel()) {
+    if (this.isDallE3Model()) {
       let prompt = '';
       
       if (typeof payload === 'string') {
@@ -599,16 +599,16 @@ class OpenAIClient extends BaseClient {
       }
       
       // Генерируем изображение с DALL-E 3
-      const imageResult = await this.generateImage(prompt);
+      const imageResult = await this.generateDallE3Image(prompt);
       
       // Формируем специальный ответ, который будет обработан на клиенте
       let responseText;
       
       if (imageResult.isOriginalUrl) {
         // Если используется оригинальный URL (из-за ошибки сохранения)
-        responseText = `![Generated Image](${imageResult.filePath})\n\n**Промт:** ${imageResult.prompt}\n\n**Примечание:** Это временная ссылка и может перестать работать через 24 часа.`;
+        responseText = `![DALL-E 3 Image](${imageResult.filePath})\n\n**Промт:** ${imageResult.prompt}\n\n**Примечание:** Это временная ссылка и может перестать работать через 24 часа.`;
       } else {
-        responseText = `![Generated Image](${imageResult.imageUrl})\n\n**Промт:** ${imageResult.prompt}\n\n**Уточненный промт:** ${imageResult.revised_prompt}`;
+        responseText = `![DALL-E 3 Image](${imageResult.imageUrl})\n\n**Промт:** ${imageResult.prompt}\n\n**Уточненный промт:** ${imageResult.revised_prompt}`;
       }
       
       return responseText;
@@ -1648,13 +1648,7 @@ ${convo}
   // Проверяем, является ли модель DALL-E 3
   isDallE3Model() {
     const model = this.modelOptions.model.toLowerCase();
-    return model === 'dall-e-3' || model.includes('dall-e');
-  }
-  
-  // Проверяем, является ли модель моделью генерации изображений
-  isImageGenerationModel() {
-    const model = this.modelOptions.model.toLowerCase();
-    return model === 'dall-e-3' || model.includes('dall-e') || model.includes('flux');
+    return model === 'gpt-image-1' || model.includes('gpt-image-1');
   }
   
   // Метод для сохранения изображения из URL
@@ -1726,20 +1720,20 @@ ${convo}
   }
   
   // Метод для генерации изображения с DALL-E 3
-  async generateImage(prompt) {
+  async generateDallE3Image(prompt) {
     try {
-      logger.debug('[OpenAIClient] Generating image with prompt:', prompt);
+      logger.debug('[OpenAIClient] Generating DALL-E 3 image with prompt:', prompt);
       
       // Используем forgetapi.ru вместо официального API OpenAI
-      const apiUrl = process.env.IMAGE_API_BASE_URL || 'https://api.navy/v1/images/generations';
+      const apiUrl = 'https://forgetapi.ru/v1/images/generations';
       
       // Настройки генерации изображения
       const imageParams = {
-        model: this.modelOptions.model,
+        model: "gpt-image-1",
         prompt: prompt,
         n: 1, // Количество изображений
-        size: "1024x1024", // Размер изображения
-        quality: "standard", // Качество изображения
+        size: "16:9", // Размер изображения
+        quality: "auto", // Качество изображения
         response_format: "url" // Формат ответа - URL
       };
       
@@ -1787,10 +1781,10 @@ ${convo}
           data: error.response.data
         });
       } else {
-        logger.error('[OpenAIClient] image generation error:', error);
+        logger.error('[OpenAIClient] DALL-E 3 generation error:', error);
       }
       
-      throw new Error(`Ошибка генерации изображения: ${error.message || 'Неизвестная ошибка'}`);
+      throw new Error(`Ошибка генерации DALL-E 3: ${error.message || 'Неизвестная ошибка'}`);
     }
   }
 }
