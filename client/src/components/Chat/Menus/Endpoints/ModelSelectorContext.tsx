@@ -102,12 +102,12 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
     async () => {
       if (!token) return {};
       try {
-        const res = await axios.get('/api/admin/model-descriptions/map', {
-          headers: { Authorization: `Bearer ${token}` }
+        const res = await axios.get('/api/models/descriptions', {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        return res.data.descriptions || {};
+        return res.data.success ? res.data.descriptions || {} : {};
       } catch (error) {
-        console.log('Описания моделей недоступны (не администратор)');
+        console.warn('Ошибка полуения описаний моделей:', error);
         return {};
       }
     },
