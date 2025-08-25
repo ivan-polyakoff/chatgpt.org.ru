@@ -61,7 +61,10 @@ function ModelSelectorContent() {
     }
 
     // Для эндпоинтов без моделей изменений нет
-    return mappedEndpoints.map(endpoint => {
+    return mappedEndpoints.filter((endpoint) => {
+      // Отключаем Agents и Plugins
+      return (endpoint.value !== 'agents' && endpoint.value !== 'gptPlugins');
+    }).map(endpoint => {
       if (!endpoint.hasModels || endpoint.value !== 'openAI') {
         return endpoint;
       }

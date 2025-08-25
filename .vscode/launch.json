@@ -4,7 +4,7 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch LibreChat (debug)",
+      "name": "🔧 Launch LibreChat (debug)",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/api/server/index.js",
       "env": {
@@ -12,6 +12,32 @@
       },
       "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/.env"
-    }
-  ]
+    },
+
+{
+  "name": "🐞 Фронтенд: запустить Chrome",
+  "type": "pwa-chrome",
+  "request": "launch",
+  "url": "http://localhost:3090",
+  "webRoot": "${workspaceFolder}/client",
+  "sourceMaps": true,
+  "sourceMapPathOverrides": {
+    "webpack:///./src/*": "${webRoot}/src/*",
+    "webpack:///*": "${webRoot}/*",
+    "/*": "${webRoot}/*",
+    "src/*": "${webRoot}/src/*"
+  },
+  "trace": true
+}  ],
+"compounds": [
+  {
+    "name": "⚡️ Полная отладка: фронт + бэк",
+    "configurations": [
+      "🔧 Launch LibreChat (debug)",
+      "🐞 Фронтенд: запустить Chrome"
+    ],
+    "stopAll": true
+  }
+]
 }
+
