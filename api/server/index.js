@@ -1,3 +1,4 @@
+global.File = require('web-file-polyfill').File;
 require('dotenv').config();
 const path = require('path');
 require('module-alias')({ base: path.resolve(__dirname, '..') });
@@ -39,7 +40,6 @@ const startServer = async () => {
   await connectDb();
   logger.info('Connected to MongoDB');
   await indexSync();
-
   // Ensure admin user exists or update password
   const ensureAdminUser = async () => {
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@chatgptorg.ru';
