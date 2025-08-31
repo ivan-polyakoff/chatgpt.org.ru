@@ -34,6 +34,7 @@ const AuthContextProvider = ({
 }) => {
   const [user, setUser] = useRecoilState(store.user);
   const [token, setToken] = useState<string | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | undefined>(undefined);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const logoutRedirectRef = useRef<string | undefined>(undefined);
@@ -181,6 +182,26 @@ const AuthContextProvider = ({
   ]);
 
   useEffect(() => {
+    if (userQuery.isLoading) {
+      setIsLoading(true);
+    }
+
+    if (!userQuery.isLoading && (userQuery.isSuccess || userQuery.isError)) {
+      setIsLoading(false);
+    }
+
+    if (!token && !refreshToken.isLoading && !userQuery.isLoading) {
+      setIsLoading(false);
+    }
+  }, [
+    userQuery.isLoading,
+    userQuery.isSuccess,
+    userQuery.isError,
+    token,
+    refreshToken.isLoading, // ← тоже замени здесь
+  ]);
+
+  useEffect(() => {
     const handleTokenUpdate = (event) => {
       console.log('tokenUpdated event received event');
       const newToken = event.detail;
@@ -212,9 +233,9 @@ const AuthContextProvider = ({
         [SystemRoles.ADMIN]: adminRole,
       },
       isAuthenticated,
+      isLoading,
     }),
-
-    [user, error, isAuthenticated, token, userRole, adminRole],
+    [user, error, login, logout, isAuthenticated, token, isLoading, userRole, adminRole]
   );
 
   return <AuthContext.Provider value={memoedValue}>{children}</AuthContext.Provider>;

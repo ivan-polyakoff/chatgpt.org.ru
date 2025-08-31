@@ -151,6 +151,7 @@
     "passport-yandex": "^0.0.5",
     "pdf-parse": "^1.1.1",
     "pkce-challenge": "^5.0.0",
-    "react-chartjs-2": "^5.3.0"
+    "react-chartjs-2": "^5.3.0",
+    "web-file-polyfill": "^1.0.4"
   }
 }

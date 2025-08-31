@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '~/hooks';
 
 export default function useAuthRedirect() {
-  const { user, isAuthenticated } = useAuthContext();
+  const { user, isAuthenticated, isLoading } = useAuthContext();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (isLoading) {
+      return; // Не редиректим, пока идёт проверка
+    }
+
     const timeout = setTimeout(() => {
       if (!isAuthenticated) {
         navigate('/login', { replace: true });
@@ -16,10 +20,11 @@ export default function useAuthRedirect() {
     return () => {
       clearTimeout(timeout);
     };
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   return {
     user,
     isAuthenticated,
+    isLoading,
   };
 }

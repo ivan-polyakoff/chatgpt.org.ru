@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 function AdminLayout() {
-  const { user, isAuthenticated } = useAuthRedirect();
+  const { user, isAuthenticated, isLoading } = useAuthRedirect();
   const { logout } = useAuthContext();
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -62,6 +62,18 @@ function AdminLayout() {
       logout();
     }
   };
+
+    // Показываем лоадер, пока идёт проверка
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-700 dark:text-gray-300">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Дождаться аутентификации
   if (!isAuthenticated) {
