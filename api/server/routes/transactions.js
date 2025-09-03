@@ -144,9 +144,10 @@ router.post('/create-payment', requireJwtAuth, async (req, res) => {
         currency: 'RUB',
       },
       capture: true,
-      payment_method_data: {
-        type: 'bank_card',
-      },
+      // Добавили новый тип платежа - СПБ и теперь не конкретизируем
+      // payment_method_data: {
+      //   type: 'bank_card',
+      // },
       confirmation: {
         type: 'redirect',
         return_url: `${process.env.CLIENT_URL || 'http://localhost:3080'}/balance?tokens=${tokens || ''}&planKey=${planKey || ''}`,

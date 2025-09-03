@@ -211,65 +211,142 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
     }
   };
 
-  // Обработчик для кнопки тарифа - теперь сразу покупает
-  const handlePlanButtonClick = async (e: React.MouseEvent, plan: Plan, isSelectable: boolean, isCurrent: boolean) => {
+  // Улучшенный вариант оплаты
+  const handlePlanButtonClick = async (
+    e: React.MouseEvent,
+    plan: Plan,
+    isSelectable: boolean,
+    isCurrent: boolean
+  ) => {
     e.stopPropagation();
-    
-    if (!isSelectable || isCurrent) {
+
+    // Защита от повторного вызова
+    if (!isSelectable || isCurrent || processing) {
       return;
     }
-    
-    // Сразу инициируем покупку
+
     setProcessing(true);
     setCurrentProcessingPlan(plan.key);
-    
+    setPaymentStatus(PaymentStatus.IDLE);
+
+    let pollInterval: NodeJS.Timeout | null = null;
+
     try {
-      const subscribeRes = await axios.post(
+      // --- Шаг 1: Инициируем подписку ---
+      const response = await axios.post(
         '/api/subscriptions/subscribe',
         { planKey: plan.key },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      window.open(subscribeRes.data.paymentUrl, '_blank');
-      
+
+      const { operationId, paymentUrl } = response.data;
+
+      if (!operationId || !paymentUrl) {
+        throw new Error('Некорректный ответ от сервера: отсутствует operationId или paymentUrl');
+      }
+
+      // Открываем платёжную страницу
+      window.open(paymentUrl, '_blank');
+
+      // Локально запоминаем, что начали оплату этого плана
       setActivatedPlan(plan);
-      
-      const poll = setInterval(async () => {
+      setPaymentStatus(PaymentStatus.IDLE);
+
+      // --- Шаг 2: Запускаем polling ---
+      let attempts = 0;
+      const maxAttempts = 30; // 30 * 2с = 60 секунд
+
+      pollInterval = setInterval(async () => {
+        attempts++;
+
         try {
-          const confirmRes = await axios.post(
+          const confirmResponse = await axios.post(
             '/api/subscriptions/confirm',
-            { planKey: plan.key, operationId: subscribeRes.data.operationId },
+            { planKey: plan.key, operationId },
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          if (confirmRes.data.success) {
-            clearInterval(poll);
+
+          if (confirmResponse.data.success) {
+            // Очищаем интервал перед завершением
+            if (pollInterval) {
+              clearInterval(pollInterval);
+              pollInterval = null;
+            }
+
             setPaymentStatus(PaymentStatus.SUCCESS);
+
+            // Критически важно: дожидаемся обновления данных
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: ['userSubscription'] }),
+              queryClient.refetchQueries({ 
+                queryKey: ['userSubscription'], 
+                type: 'active' 
+              }),
+            ]);
+
             showToast({ message: 'Подписка успешно активирована!' });
-            // Принудительно обновляем кэш подписки
-            queryClient.invalidateQueries(['userSubscription']);
-            // Также принудительно перезагружаем данные подписки
-            queryClient.refetchQueries(['userSubscription']);
-            // Обновляем текущий план для немедленного отображения
-            setTimeout(() => {
-              queryClient.invalidateQueries(['userSubscription']);
-            }, 1000);
+            return;
           }
+
+          // Если успеха нет, но ошибка не критичная — продолжаем
+          if (attempts >= maxAttempts) {
+            throw new Error('Превышено максимальное количество попыток');
+          }
+
         } catch (err: any) {
-          if (err.response?.status !== 400) {
-            clearInterval(poll);
+          const status = err.response?.status;
+
+          // 400 — платёж ещё в обработке, продолжаем
+          if (status === 400) {
+            console.debug(`[Polling] Попытка ${attempts}/${maxAttempts}: платёж в обработке`);
+            return;
+          }
+
+          // Все остальные ошибки — логируем, но продолжаем, пока не исчерпан лимит
+          console.warn('[Polling] Ошибка:', err.message);
+
+          if (attempts >= maxAttempts) {
+            if (pollInterval) {
+              clearInterval(pollInterval);
+              pollInterval = null;
+            }
             setPaymentStatus(PaymentStatus.FAILURE);
-            showToast({ message: err.response?.data?.message || 'Ошибка подтверждения подписки' });
+            showToast({
+              message: 'Не удалось подтвердить подписку. Проверьте статус в личном кабинете.',
+            });
           }
         }
       }, 2000);
+
+      // Защита от "забытого" интервала
+      setTimeout(() => {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+          if (paymentStatus !== PaymentStatus.SUCCESS) {
+            setPaymentStatus(PaymentStatus.FAILURE);
+            showToast({
+              message: 'Таймаут ожидания. Подписка будет активирована, если платёж прошёл.',
+            });
+          }
+        }
+      }, 70000); // 70 секунд — чуть больше, чем maxAttempts * 2s
+
     } catch (err: any) {
+      // Останавливаем polling при критической ошибке
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+
       setPaymentStatus(PaymentStatus.FAILURE);
-      showToast({ message: err.response?.data?.message || 'Ошибка инициации оплаты' });
+      const message = err.response?.data?.message || err.message || 'Не удалось инициировать оплату. Попробуйте позже.';
+      showToast({ message });
     } finally {
       setProcessing(false);
       setCurrentProcessingPlan('');
     }
   };
-
   // Экран успешной оплаты
   const renderSuccessScreen = () => (
     <div className="flex flex-col items-center justify-center py-16 px-4">
