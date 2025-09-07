@@ -301,16 +301,16 @@ export function ModelSelectorProvider({ children, startupConfig }: ModelSelector
   };
 
   // если модель все еще gpt-5 - ставим 1-е значение из текущего плана  
-  if (selectedValues.model === 'gpt-5' && allowedModels && allowedModels.length>0) {
-    const newModel = allowedModels[0];
-    setSelectedValues(prev => {
-      console.log('Устанавливаем модель вместо Gpt-5:', newModel);
-      return {
-        ...prev,
-        model: newModel,
-      };
-    });
-  }
+  // if (selectedValues.model === 'gpt-5' && allowedModels && allowedModels.length>0) {
+  //   const newModel = allowedModels[0];
+  //   setSelectedValues(prev => {
+  //     console.log('Устанавливаем модель вместо Gpt-5:', newModel);
+  //     return {
+  //       ...prev,
+  //       model: newModel,
+  //     };
+  //   });
+  // }
 
   const value = {
     // State

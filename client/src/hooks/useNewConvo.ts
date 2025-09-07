@@ -26,7 +26,7 @@ import {
   getModelSpecIconURL,
   updateLastSelectedModel,
 } from '~/utils';
-import { useDeleteFilesMutation, useGetEndpointsQuery, useGetStartupConfig } from '~/data-provider';
+import { useDeleteFilesMutation, useGetEndpointsQuery, useGetStartupConfig, useGetUserSubscriptionQuery } from '~/data-provider';
 import useAssistantListMap from './Assistants/useAssistantListMap';
 import { useResetChatBadges } from './useChatBadges';
 import { usePauseGlobalAudio } from './Audio';
@@ -61,6 +61,9 @@ const useNewConvo = (index = 0) => {
     },
   });
 
+  // Получаем информацию о подписке пользователя
+  const { data: userSubscriptionData, isLoading: isLoadingSubscription } = useGetUserSubscriptionQuery();
+  
   const switchToConversation = useRecoilCallback(
     () =>
       async (
@@ -139,7 +142,12 @@ const useNewConvo = (index = 0) => {
             conversation.assistant_id = undefined;
           }
 
-          const models = modelsConfig?.[defaultEndpoint] ?? [];
+          const allModels = modelsConfig?.[defaultEndpoint] ?? [];
+          // Используем готовый список разрешенных моделей из подписки
+          const allowedModels = userSubscriptionData?.subscription?.plan?.allowedModels || [];
+          // Приоритет: разрешенные модели > все модели (fallback)
+          const models = allowedModels.length > 0 ? allowedModels : allModels;
+
           conversation = buildDefaultConvo({
             conversation,
             lastConversationSetup: activePreset as TConversation,
