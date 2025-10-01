@@ -37,7 +37,7 @@ export default function Footer({ className }: { className?: string }) {
   const mainContentParts = (
     typeof config?.customFooter === 'string'
       ? config.customFooter
-      : 'По техническим вопросам пишите нам в телеграм - [@covekss](https://t.me/covekss)'
+      : 'По техническим вопросам пишите нам в телеграм - [Техподдержка](https://t.me/covekss)'
   ).split('|');
 
   useEffect(() => {

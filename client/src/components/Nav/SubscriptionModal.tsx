@@ -9,6 +9,49 @@ import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 import { useGetUserSubscriptionQuery } from '~/data-provider';
 
+// Ключ для localStorage
+const PAYMENT_CHECK_KEY = 'paymentCheckData';
+
+// Сохраняем данные с авто-очисткой через 10 минут
+const savePaymentCheckData = (operationId: string, planKey: string) => {
+  const data = {
+    operationId,
+    planKey,
+    timestamp: Date.now()
+  };
+  localStorage.setItem(PAYMENT_CHECK_KEY, JSON.stringify(data));
+  // Автоматически удаляем через 10 минут
+  setTimeout(() => {
+    localStorage.removeItem(PAYMENT_CHECK_KEY);
+  }, 10 * 60 * 1000); // 10 минут в миллисекундах
+};
+
+const loadPaymentCheckData = () => {
+  const data = localStorage.getItem(PAYMENT_CHECK_KEY);
+  if (!data) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(data);
+    // Проверяем, не прошло ли 10 минут
+    if (Date.now() - parsed.timestamp < 10 * 60 * 1000) {
+      return parsed;
+    } else {
+      // Удаляем просроченные данные
+      localStorage.removeItem(PAYMENT_CHECK_KEY);
+      return null;
+    }
+  } catch {
+    localStorage.removeItem(PAYMENT_CHECK_KEY);
+    return null;
+  }
+};
+
+// Очищаем данные (при успехе)
+const clearPaymentCheckData = () => {
+  localStorage.removeItem(PAYMENT_CHECK_KEY);
+};
+
 type SubscriptionModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -81,6 +124,9 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(PaymentStatus.IDLE);
   const [activatedPlan, setActivatedPlan] = useState<Plan | null>(null);
   const [currentProcessingPlan, setCurrentProcessingPlan] = useState<string>('');
+  const [currentOperationId, setCurrentOperationId] = useState<string>('');
+  const [savedPaymentData, setSavedPaymentData] = useState<{operationId: string, planKey: string} | null>(null);
+  const [successPlanData, setSuccessPlanData] = useState<{name: string, durationDays: number} | null>(null);
   
   // Получаем текущий план пользователя из данных подписки
   const currentPlanKey = userSubscriptionData?.subscription?.plan?.key?.toLowerCase() || 'free';
@@ -174,7 +220,13 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
   useEffect(() => {
     if (open) {
       setLoading(true);
-      
+      // Загружаем данные для кнопки проверки
+      const savedData = loadPaymentCheckData();
+      if (savedData ) {
+        setSavedPaymentData(savedData); // ← Сохраняем в состояние
+      } else {
+        setSavedPaymentData(null); // ← Сбрасываем если нет данных
+      }
       // Принудительно обновляем данные подписки при открытии модала
       queryClient.invalidateQueries(['userSubscription']);
       
@@ -196,6 +248,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
         setPaymentStatus(PaymentStatus.IDLE);
         setActivatedPlan(null);
         setCurrentProcessingPlan('');
+        setCurrentOperationId('');
       }, 300);
     }
   }, [open, token, showToast, currentPlanKey, queryClient]);
@@ -251,11 +304,14 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
       // Локально запоминаем, что начали оплату этого плана
       setActivatedPlan(plan);
       setPaymentStatus(PaymentStatus.IDLE);
+      setCurrentOperationId(operationId);
+      savePaymentCheckData(operationId, plan.key); // ← Сохраняем planId и operationId 
 
       // --- Шаг 2: Запускаем polling ---
       let attempts = 0;
-      const maxAttempts = 30; // 30 * 2с = 60 секунд
-
+      const maxAttempts = 120; //  120 попыток
+      const pollingInterval = 2000; // 2 секунды между попытками
+      // Итого: 120 × 2 = 240 секунд = 4 минуты
       pollInterval = setInterval(async () => {
         attempts++;
 
@@ -272,8 +328,12 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
               clearInterval(pollInterval);
               pollInterval = null;
             }
-
             setPaymentStatus(PaymentStatus.SUCCESS);
+            clearPaymentCheckData();
+            setCurrentOperationId('');
+            setSavedPaymentData(null);
+            //setActivatedPlan(null);
+            setCurrentProcessingPlan('');
 
             // Критически важно: дожидаемся обновления данных
             await Promise.all([
@@ -316,7 +376,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
             });
           }
         }
-      }, 2000);
+      }, pollingInterval);
 
       // Защита от "забытого" интервала
       setTimeout(() => {
@@ -330,7 +390,7 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
             });
           }
         }
-      }, 70000); // 70 секунд — чуть больше, чем maxAttempts * 2s
+      }, (maxAttempts * pollingInterval) + 10000); // 250 секунд = 4 минуты 10 секунд
 
     } catch (err: any) {
       // Останавливаем polling при критической ошибке
@@ -358,17 +418,15 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
           <Sparkles className="h-4 w-4 text-yellow-800" />
         </div>
       </div>
-      
       <h3 className="mt-8 text-2xl font-bold text-gray-900 dark:text-white text-center">
         Подписка активирована!
       </h3>
       <p className="mt-3 text-center text-gray-600 dark:text-gray-300 max-w-md">
-        Поздравляем! Вы успешно приобрели тариф <span className="font-bold text-purple-600 dark:text-purple-400">{activatedPlan?.name}</span>
+        Поздравляем! Вы успешно приобрели тариф <span className="font-bold text-purple-600 dark:text-purple-400">{activatedPlan?.name || successPlanData?.name}</span>
       </p>
       <p className="text-gray-500 dark:text-gray-400 mt-2 text-center">
-        Подписка действует {activatedPlan?.durationDays} дней
+        Подписка действует {activatedPlan?.durationDays || successPlanData?.durationDays} дней
       </p>
-      
       <div className="mt-8 flex flex-col sm:flex-row gap-3">
         <button
           onClick={() => {
@@ -384,27 +442,71 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
     </div>
   );
 
-  // Экран ошибки
+  // Экран таймаута
   const renderErrorScreen = () => (
     <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="h-24 w-24 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-xl">
-        <X className="h-12 w-12 text-white" />
+      <div className="h-24 w-24 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-xl">
+        <svg className="h-12 w-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
       </div>
-      
       <h3 className="mt-8 text-2xl font-bold text-gray-900 dark:text-white text-center">
-        Ошибка оплаты
+        Время ожидания истекло
       </h3>
       <p className="mt-3 text-center text-gray-600 dark:text-gray-300 max-w-md">
-        Произошла ошибка при обработке платежа. Попробуйте еще раз или обратитесь в поддержку.
+        Мы не дождались подтверждения платежа. Если вы уже оплатили — проверьте статус вручную.
       </p>
-      
       <div className="mt-8 flex flex-col sm:flex-row gap-3">
-        <button
-          onClick={() => setPaymentStatus(PaymentStatus.IDLE)}
-          className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
-        >
-          Попробовать снова
-        </button>
+        {/* Кнопка проверки статуса */}
+        {currentOperationId && activatedPlan?.key && (
+          <button
+            onClick={async () => {
+              try {
+                setPaymentStatus(PaymentStatus.IDLE);
+                const response = await axios.post(
+                  '/api/subscriptions/confirm',
+                  {
+                    planKey: activatedPlan?.key,
+                    operationId: currentOperationId
+                  },
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+
+                if (response.data.success) {
+                  setPaymentStatus(PaymentStatus.SUCCESS);
+                  await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ['userSubscription'] }),
+                    queryClient.refetchQueries({ 
+                      queryKey: ['userSubscription'], 
+                      type: 'active' 
+                    }),
+                  ]);
+
+                  setCurrentOperationId('');
+                  setSavedPaymentData(null);
+                  clearPaymentCheckData();
+                  //setActivatedPlan(null);
+                  setCurrentProcessingPlan('');
+
+                  showToast({ message: 'Подписка успешно активирована!' });
+                } else {
+                  setPaymentStatus(PaymentStatus.FAILURE);
+                  showToast({
+                    message: 'Оплата еще не подтверждена. Попробуйте позже.'
+                  });
+                }
+              } catch (err: any) {
+                setPaymentStatus(PaymentStatus.FAILURE);
+                showToast({
+                  message: err.response?.data?.message || 'Ошибка проверки статуса' 
+                });
+              }
+            }}
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl shadow-lg hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                Проверить статус платежа
+            </button>
+        )}
+
         <button
           onClick={() => onOpenChange(false)}
           className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200"
@@ -414,13 +516,11 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
       </div>
     </div>
   );
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content className="fixed left-[50%] top-[50%] z-50 max-h-[95vh] w-[95vw] max-w-6xl translate-x-[-50%] translate-y-[-50%] overflow-auto rounded-3xl bg-white dark:bg-gray-900 shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] border border-gray-200/50 dark:border-gray-700/50">
-          
           {/* Заголовок */}
           <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50 p-6 sm:p-8 rounded-t-3xl">
             <Dialog.Title className="text-3xl sm:text-4xl font-bold text-center bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
@@ -565,12 +665,86 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
                   })}
                 </div>
                 
+
+                {/* Кнопка повторной проверки после таймаута */}
+                {(savedPaymentData?.operationId && savedPaymentData?.planKey) && (
+                  <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          Если вы уже оплатили план <b>{savedPaymentData.planKey.charAt(0).toUpperCase() + savedPaymentData.planKey.slice(1)}</b>, но подписка еще не активирована — проверьте статус платежа вручную.
+                        </p>
+                        <button
+                          onClick={async () => {
+                            try {
+                              setPaymentStatus(PaymentStatus.IDLE);
+                              const response = await axios.post(
+                                '/api/subscriptions/confirm',
+                                {
+                                  planKey: savedPaymentData?.planKey,
+                                  operationId: savedPaymentData?.operationId
+                                },
+                                { headers: { Authorization: `Bearer ${token}` } }
+                              );
+
+                              if (response.data.success) {
+                                setPaymentStatus(PaymentStatus.SUCCESS);
+
+                                // Сохраняем данные для экрана успеха
+                                const plan = plans.find(p => p.key === savedPaymentData?.planKey);
+                                if (plan) {
+                                  setSuccessPlanData({
+                                    name: plan.name,
+                                    durationDays: plan.durationDays
+                                  });
+                                }
+  
+                                await Promise.all([
+                                  queryClient.invalidateQueries({ queryKey: ['userSubscription'] }),
+                                  queryClient.refetchQueries({ 
+                                    queryKey: ['userSubscription'],
+                                    type: 'active' 
+                                  }),
+                                ]);
+
+                                setCurrentOperationId('');
+                                setSavedPaymentData(null);
+                                clearPaymentCheckData();
+
+                                showToast({ message: 'Подписка успешно активирована!' });
+                              } else {
+                                setPaymentStatus(PaymentStatus.FAILURE);
+                                showToast({
+                                  message: 'Оплата еще не подтверждена. Попробуйте позже.'
+                                });
+                              }
+                            } catch (err: any) {
+                              setPaymentStatus(PaymentStatus.FAILURE);
+                              showToast({
+                                message: err.response?.data?.message || 'Ошибка проверки статуса' 
+                              });
+                            }
+                          }}
+                          className="mt-3 inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg hover:from-blue-600 hover:to-cyan-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                          </svg>
+                          Проверить статус платежа
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* Нижняя панель с кнопками */}
                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
                   <div className="text-sm text-gray-500 dark:text-gray-400 text-center sm:text-left space-y-1">
                     <div>💳 Безопасная оплата через ЮKassa  ❌ Без автоматических списаний</div>
                   </div>
-                  
                   <div className="flex justify-center sm:justify-end">
                     <button
                       onClick={() => onOpenChange(false)}
