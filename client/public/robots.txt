@@ -1,3 +1,4 @@
 User-agent: *
-Disallow: /api/
 Allow: /
+Sitemap: https://chatgpt.org.ru/sitemap.xml
+Host: chatgpt.org.ru
