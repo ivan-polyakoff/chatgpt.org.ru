@@ -282,8 +282,6 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
     setCurrentProcessingPlan(plan.key);
     setPaymentStatus(PaymentStatus.IDLE);
 
-    let pollInterval: NodeJS.Timeout | null = null;
-
     try {
       // --- Шаг 1: Инициируем подписку ---
       const response = await axios.post(
@@ -307,98 +305,15 @@ const SubscriptionModal = ({ open, onOpenChange }: SubscriptionModalProps) => {
       setCurrentOperationId(operationId);
       savePaymentCheckData(operationId, plan.key); // ← Сохраняем planId и operationId 
 
-      // --- Шаг 2: Запускаем polling ---
-      let attempts = 0;
-      const maxAttempts = 120; //  120 попыток
-      const pollingInterval = 2000; // 2 секунды между попытками
-      // Итого: 120 × 2 = 240 секунд = 4 минуты
-      pollInterval = setInterval(async () => {
-        attempts++;
-
-        try {
-          const confirmResponse = await axios.post(
-            '/api/subscriptions/confirm',
-            { planKey: plan.key, operationId },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-          if (confirmResponse.data.success) {
-            // Очищаем интервал перед завершением
-            if (pollInterval) {
-              clearInterval(pollInterval);
-              pollInterval = null;
-            }
-            setPaymentStatus(PaymentStatus.SUCCESS);
-            clearPaymentCheckData();
-            setCurrentOperationId('');
-            setSavedPaymentData(null);
-            //setActivatedPlan(null);
-            setCurrentProcessingPlan('');
-
-            // Критически важно: дожидаемся обновления данных
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['userSubscription'] }),
-              queryClient.refetchQueries({ 
-                queryKey: ['userSubscription'], 
-                type: 'active' 
-              }),
-            ]);
-
-            showToast({ message: 'Подписка успешно активирована!' });
-            return;
-          }
-
-          // Если успеха нет, но ошибка не критичная — продолжаем
-          if (attempts >= maxAttempts) {
-            throw new Error('Превышено максимальное количество попыток');
-          }
-
-        } catch (err: any) {
-          const status = err.response?.status;
-
-          // 400 — платёж ещё в обработке, продолжаем
-          if (status === 400) {
-            console.debug(`[Polling] Попытка ${attempts}/${maxAttempts}: платёж в обработке`);
-            return;
-          }
-
-          // Все остальные ошибки — логируем, но продолжаем, пока не исчерпан лимит
-          console.warn('[Polling] Ошибка:', err.message);
-
-          if (attempts >= maxAttempts) {
-            if (pollInterval) {
-              clearInterval(pollInterval);
-              pollInterval = null;
-            }
-            setPaymentStatus(PaymentStatus.FAILURE);
-            showToast({
-              message: 'Не удалось подтвердить подписку. Проверьте статус в личном кабинете.',
-            });
-          }
-        }
-      }, pollingInterval);
-
-      // Защита от "забытого" интервала
+      // --- Шаг 2: Без polling ---
+      // Полагаемся на вебхук: сервер активирует подписку по событию payment.succeeded
+      showToast({ message: 'Оплата инициирована. Подтверждение придёт автоматически (вебхук).' });
+      // Для UX: мягко обновим данные через короткую задержку
       setTimeout(() => {
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          pollInterval = null;
-          if (paymentStatus !== PaymentStatus.SUCCESS) {
-            setPaymentStatus(PaymentStatus.FAILURE);
-            showToast({
-              message: 'Таймаут ожидания. Подписка будет активирована, если платёж прошёл.',
-            });
-          }
-        }
-      }, (maxAttempts * pollingInterval) + 10000); // 250 секунд = 4 минуты 10 секунд
+        queryClient.invalidateQueries({ queryKey: ['userSubscription'] });
+      }, 5000);
 
     } catch (err: any) {
-      // Останавливаем polling при критической ошибке
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-      }
-
       setPaymentStatus(PaymentStatus.FAILURE);
       const message = err.response?.data?.message || err.message || 'Не удалось инициировать оплату. Попробуйте позже.';
       showToast({ message });

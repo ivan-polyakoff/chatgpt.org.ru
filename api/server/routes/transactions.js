@@ -6,6 +6,9 @@ const { Transaction } = require('~/models/Transaction');
 const axios = require('axios');
 const PromoCode = require('~/models/PromoCode');
 const SubscriptionPlan = require('~/models/SubscriptionPlan');
+const UserSubscription = require('~/models/UserSubscription');
+const subscriptionConfig = require('~/server/config/subscriptionConfig');
+const { getModelsForPlan } = subscriptionConfig;
 const crypto = require('crypto');
 
 /**
@@ -282,8 +285,55 @@ router.post('/webhook', async (req, res) => {
             console.log(`Successfully added ${tokenAmount} tokens via webhook for user ${userId}, payment ${payment.id}`);
           }
         } else if (planKey && userId) {
-          // Обработка покупки подписки
-          console.log(`Subscription payment received for plan ${planKey}, user ${userId}, payment ID: ${payment.id}`);
+          // Обработка покупки подписки через вебхук (без зависимости от браузера)
+          try {
+            const plan = await SubscriptionPlan.findOne({ key: planKey });
+            if (!plan) {
+              console.warn(`[YooKassa webhook] Plan not found for key=${planKey}; payment=${payment.id}`);
+            } else {
+              // Обновляем allowedModels в плане при необходимости из конфигурации
+              if (!plan.allowedModels || plan.allowedModels.length === 0) {
+                const envModels = getModelsForPlan(planKey);
+                plan.allowedModels = envModels;
+                await plan.save();
+              }
+
+              const now = new Date();
+              const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+              const remainingMessages = plan.messageLimit;
+
+              let userSub = await UserSubscription.findOne({ user: userId });
+              if (userSub) {
+                userSub.plan = plan._id;
+                userSub.startDate = now;
+                userSub.endDate = endDate;
+                userSub.remainingMessages = remainingMessages;
+                userSub.status = 'active';
+                userSub.paymentInfo = {
+                  operationId: payment.id,
+                  amount: Number(payment.amount?.value) || plan.price,
+                };
+              } else {
+                userSub = new UserSubscription({
+                  user: userId,
+                  plan: plan._id,
+                  startDate: now,
+                  endDate,
+                  remainingMessages,
+                  status: 'active',
+                  paymentInfo: {
+                    operationId: payment.id,
+                    amount: Number(payment.amount?.value) || plan.price,
+                  },
+                });
+              }
+
+              await userSub.save();
+              console.log(`[YooKassa webhook] Subscription activated: user=${userId}, plan=${planKey}, payment=${payment.id}`);
+            }
+          } catch (subErr) {
+            console.error('[YooKassa webhook] Error activating subscription:', subErr);
+          }
         }
       }
     }
